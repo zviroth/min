@@ -145,9 +145,9 @@ totalVar = mean(std(rwdTrials,0,5),4);
 
 
 
-%% plot STD of mean trial and mean of trial STD as function of SNR
+%% PLOT VARIABILITY AS FUNCTION OF SNR AND TEMPORAL JITTER
 i=i+1; figure(i) ;clf
-rows=1;
+rows=3;
 cols=4;
 subplot(rows,cols,1)
 imagesc(squeeze(ampMeanTrial(:,:,1)))
@@ -161,7 +161,6 @@ title('FFT phase variability');
 subplot(rows,cols,4)
 imagesc(squeeze(totalVar(:,:,1)))
 title('mean timepoint variability');
-
 for isubplot=1:rows*cols
     subplot(rows,cols,isubplot)
     xlabel('temporal jitter (radians)');
@@ -174,20 +173,58 @@ subplot(rows,cols,1)
 ylabel('SNR');
 yticks(1:5:length(snr))
 yticklabels(snr(1:5:end));
-% %% plot data
-% i=i+1; figure(i) ;clf
-% rows=2;
-% cols=numRwd;
-% for rwd=1:numRwd
-%     subplot(rows,cols,rwd)
-%     plot(squeeze(mean(rwdTC(rwd,:,:),3)))
-%     subplot(rows,cols,rwd+cols)
-%     plot(meanTrial(rwd,:))
-% end
-% ampMeanTrial;
-% meanTrialsAmp;
-% 
 
+% PLOT VARIABILITY AS FUNCTION OF SNR AND AMPLITUDE JITTER
+subplot(rows,cols,cols+1)
+imagesc(squeeze(ampMeanTrial(:,1,:)))
+title('amplitude of mean trial');
+subplot(rows,cols,cols+2)
+imagesc(squeeze(meanTrialsAmp(:,1,:)))
+title('mean trials amplitude');
+subplot(rows,cols,cols+3)
+imagesc(squeeze(phVar(:,1,:)))
+title('FFT phase variability');
+subplot(rows,cols,cols+4)
+imagesc(squeeze(totalVar(:,1,:)))
+title('mean timepoint variability');
+for isubplot=cols+1:2*cols
+    subplot(rows,cols,isubplot)
+    xlabel('amplitude jitter');
+    xticks(1:10:length(ampJitter))
+    xticklabels(ampJitter(1:10:end));
+    axis('image')
+    yticks([])
+end
+subplot(rows,cols,cols+1)
+ylabel('SNR');
+yticks(1:5:length(snr))
+yticklabels(snr(1:5:end));
+
+% PLOT VARIABILITY AS FUNCTION OF TEMPORAL AND AMPLITUDE JITTER
+subplot(rows,cols,2*cols+1)
+imagesc(squeeze(ampMeanTrial(1,:,:)))
+title('amplitude of mean trial');
+subplot(rows,cols,2*cols+2)
+imagesc(squeeze(meanTrialsAmp(1,:,:)))
+title('mean trials amplitude');
+subplot(rows,cols,2*cols+3)
+imagesc(squeeze(phVar(1,:,:)))
+title('FFT phase variability');
+subplot(rows,cols,2*cols+4)
+imagesc(squeeze(totalVar(1,:,:)))
+title('mean timepoint variability');
+for isubplot=2*cols+1:rows*cols
+    subplot(rows,cols,isubplot)
+    xlabel('amplitude jitter');
+    xticks(1:10:length(ampJitter))
+    xticklabels(ampJitter(1:10:end));
+    axis('image')
+    yticks([])
+end
+subplot(rows,cols,2*cols+1)
+ylabel('temporal jitter');
+yticks(1:5:length(jitter))
+yticklabels(jitter(1:5:end));
 %% 
 linewidth = 0.1;
 markersize = 10;
