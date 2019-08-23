@@ -7,7 +7,7 @@ curFolder = pwd;
 dataFolder = '/Volumes/MH02086153MACDT-Drobo/allMinSubjects_concatenated/';
 subFolders = {'000520180116', '0008i20180213', '0016i20180207', '002220171212', '003220180105', '0034i20180209', '003520180328', '004020180328','004120180320', '0042i20180412', '0045i20180309', '0046i20180409', '0049i20180404', '005220180621'};
 
-nperms=10000;
+nperms=1000;
 onlyCorrectString = '';
 if onlyCorrect==1
     onlyCorrectString = '_correct';
@@ -98,6 +98,7 @@ for iSub = 1:length(goodSubs)%length(subdirs)
            roiFftBaseline = mean(reshapedTrials);
            subFftAmpStd(iSub,iRoi,rwd) = std(roiFftAmp);
            subFftMeanAmp(iSub,iRoi,rwd) = mean(roiFftAmp);
+           subFftMeanPh(iSub,iRoi,rwd) = circ_mean(roiFftPh');
            subMeanStd(iSub,iRoi,rwd) = mean(std(reshapedTrials));
            subStdVar(iSub,iRoi,rwd) = std(std(reshapedTrials));%variability of amplitude measured by std
            subMedianStd(iSub,iRoi,rwd) = median(std(reshapedTrials));
@@ -141,7 +142,9 @@ for iSub = 1:length(goodSubs)%length(subdirs)
 %         temp = trialRT{goodSubs(iSub),rwd}(:);
         temp = trialRT{goodSubs(iSub),rwd}(:,2:end-1);
         trialRTvec{iSub,rwd} = temp(trialResponseVec>0);%only trials with a response, we're assuming onlyCorrect==0
-
+        temp = trialCorrectness{goodSubs(iSub),rwd}(:,1:end);%include the first trial, and the last as well
+        trialCorrectVec{iSub,rwd} = temp(:); %include trials with no response
+        subPropCorrect(iSub,rwd) = sum(trialCorrectVec{iSub,rwd})/length(trialCorrectVec{iSub,rwd});
 %         if rwd==1
 %             firstTrial(rwd)=1;
 %         else %rwd==2
@@ -164,6 +167,12 @@ for iSub = 1:length(goodSubs)%length(subdirs)
                 permSubMeanTC(iSub,iRoi,rwd,p,:) = mean(permTrials,2);%average timecourse over trials
                 permSubResp(iSub,iRoi,rwd,p) = std(squeeze(permSubMeanTC(iSub,iRoi,rwd,p,:)));%amplitude of task response
                 
+                %latency
+                temp=fft(permSubMeanTC(iSub,iRoi,rwd,p,:));
+                permSubMeanFftAmp(iSub,iRoi,rwd,p) = abs(temp(2));
+                permSubMeanFftPh(iSub,iRoi,rwd,p) = angle(temp(2));
+                
+                
 %                 temp = abs(fft(permSubMeanTC(iSub,iRoi,rwd,p,:)));
 %                 permSubFFT(iSub,iRoi,rwd,p) = temp(ntrials+1);
 
@@ -182,6 +191,7 @@ for iSub = 1:length(goodSubs)%length(subdirs)
                 permSubBaselineStd(iSub,iRoi,rwd,p) = std(permFftBaseline);
                 
                 permSubMeanAmp(iSub,iRoi,rwd,p) = mean(permFftAmp);
+                permSubMeanPh(iSub,iRoi,rwd,p) = circ_mean(permFftPh');
                 permSubMeanStd(iSub,iRoi,rwd,p) = mean(std(permTrials));
                 permSubMedianStd(iSub,iRoi,rwd,p) = median(std(permTrials));
                 
@@ -197,13 +207,24 @@ for iSub = 1:length(goodSubs)%length(subdirs)
     end
     
     for iRoi= ROIs%length(roiNames)
+        %difference in amplitude
         for rwd = 1:2
             realSubMeanTC(iSub,iRoi,rwd,:) = mean(subTrialResponse{goodSubs(iSub),iRoi,rwd},2);
+            temp = fft(squeeze(realSubMeanTC(iSub,iRoi,rwd,:)));
+            realSubMeanFftAmp(iSub,iRoi,rwd) = abs(temp(2));
+            realSubMeanFftPh(iSub,iRoi,rwd) = angle(temp(2));
         end
         realSubDiff(iSub,iRoi) = std(realSubMeanTC(iSub,iRoi,1,:)) - std(realSubMeanTC(iSub,iRoi,2,:));%difference between high std and low std
         permSubDiff(iSub,iRoi,:) = squeeze(permSubResp(iSub,iRoi,1,:) - permSubResp(iSub,iRoi,2,:));%difference between high std and low std
-        pVal_sub(iSub, iRoi) = sum(permSubDiff(iSub,iRoi,:) > realSubDiff(iSub,iRoi))/nperms;
-
+        pVal_sub(iSub, iRoi) = sum(permSubDiff(iSub,iRoi,:) >= realSubDiff(iSub,iRoi))/nperms;
+        
+        %difference in latency
+        realSubFftAmpDiff(iSub,iRoi) = realSubMeanFftAmp(iSub,iRoi,2) - realSubMeanFftAmp(iSub,iRoi,1);
+        realSubFftPhDiff(iSub,iRoi) = circ_dist(realSubMeanFftPh(iSub,iRoi,2), realSubMeanFftPh(iSub,iRoi,1));
+        permSubFftAmpDiff(iSub,iRoi,:) = permSubMeanFftAmp(iSub,iRoi,2,:) - permSubMeanFftAmp(iSub,iRoi,1,:);
+        permSubFftPhDiff(iSub,iRoi,:) = circ_dist(permSubMeanFftPh(iSub,iRoi,2,:),permSubMeanFftPh(iSub,iRoi,1,:));
+        pVal_fftPh_sub(iSub, iRoi) = sum(permSubFftPhDiff(iSub,iRoi,:) >= realSubFftPhDiff(iSub,iRoi))/nperms;
+        
         %FFT variability
         realSubAmpStdDiff(iSub,iRoi) = subFftAmpStd(iSub,iRoi,2) - subFftAmpStd(iSub,iRoi,1);
         realSubPhStdDiff(iSub,iRoi) = subFftPhStd(iSub,iRoi,2) - subFftPhStd(iSub,iRoi,1);
@@ -211,6 +232,7 @@ for iSub = 1:length(goodSubs)%length(subdirs)
         realSubBaselineStdDiff(iSub,iRoi) = subFftBaselineStd(iSub,iRoi,2) - subFftBaselineStd(iSub,iRoi,1);
         
         realSubMeanFftAmpDiff(iSub,iRoi) = subFftMeanAmp(iSub,iRoi,2) - subFftMeanAmp(iSub,iRoi,1);
+        realSubMeanFftPhDiff(iSub,iRoi) = squeeze(circ_dist(subFftMeanPh(iSub,iRoi,2),subFftMeanPh(iSub,iRoi,1)));
         realSubMeanStdDiff(iSub,iRoi) = subMeanStd(iSub,iRoi,2) - subMeanStd(iSub,iRoi,1);
         realSubMedianStdDiff(iSub,iRoi) = subMedianStd(iSub,iRoi,2) - subMedianStd(iSub,iRoi,1);
         
@@ -222,6 +244,7 @@ for iSub = 1:length(goodSubs)%length(subdirs)
         permSubBaselineStdDiff(iSub,iRoi,:) = squeeze(permSubBaselineStd(iSub,iRoi,2,:) - permSubBaselineStd(iSub,iRoi,1,:));
         
         permSubMeanAmpDiff(iSub,iRoi,:) = squeeze(permSubMeanAmp(iSub,iRoi,2,:) - permSubMeanAmp(iSub,iRoi,1,:));
+        permSubMeanPhDiff(iSub,iRoi,:) = squeeze(circ_dist(permSubMeanPh(iSub,iRoi,2,:),permSubMeanPh(iSub,iRoi,1,:)));
         permSubMeanStdDiff(iSub,iRoi,:) = squeeze(permSubMeanStd(iSub,iRoi,2,:) - permSubMeanStd(iSub,iRoi,1,:));
         permSubMedianStdDiff(iSub,iRoi,:) = squeeze(permSubMedianStd(iSub,iRoi,2,:) - permSubMedianStd(iSub,iRoi,1,:));
         
@@ -236,13 +259,16 @@ for iSub = 1:length(goodSubs)%length(subdirs)
     
 end
 hypoth = pVal_sub<0.05;
-% pVal_sub(:,ROIs);
+hypoth_ph = pVal_fftPh_sub<0.05;
+pVal_sub(:,ROIs)
+pVal_fftPh_sub(:,ROIs)
 
 meanRealAmpStdDiff = squeeze(mean(realSubAmpStdDiff));%mean over subjects
 meanRealPhStdDiff = squeeze(mean(realSubPhStdDiff));%mean over subjects
 meanRealOtherStdDiff = squeeze(mean(realSubOtherStdDiff));%mean over subjects
 meanRealBaselineStdDiff = squeeze(mean(realSubBaselineStdDiff));%mean over subjects
 meanRealFftAmpDiff = squeeze(mean(realSubMeanFftAmpDiff));%mean over subjects
+meanRealFftPhDiff = squeeze(mean(realSubMeanFftPhDiff));%mean over subjects
 meanRealStdVarDiff = squeeze(mean(realSubStdVarDiff));%mean over subjects
 
 meanRealMeanStdDiff = squeeze(mean(realSubMeanStdDiff));%mean trials amplitude, mean over subjects
@@ -254,6 +280,7 @@ meanPermPhStdDiff = squeeze(mean(permSubPhStdDiff));%mean over subjects
 meanPermOtherStdDiff = squeeze(mean(permSubOtherStdDiff));%mean over subjects
 meanPermBaselineStdDiff = squeeze(mean(permSubBaselineStdDiff));%mean over subjects
 meanPermMeanAmpDiff = squeeze(mean(permSubMeanAmpDiff));%mean over subjects
+meanPermMeanPhDiff = squeeze(mean(permSubMeanPhDiff));%mean over subjects
 meanPermMeanStdDiff = squeeze(mean(permSubMeanStdDiff));%mean over subjects
 meanPermMedianStdDiff= squeeze(mean(permSubMedianStdDiff));%mean over subjects
 
@@ -266,6 +293,10 @@ for iRoi= ROIs
     meanRealDiff(iRoi) = mean(realSubDiff(:,iRoi));%average over subjects
     pVal_rfx(iRoi) = sum(meanPermDiff(iRoi,:) >= meanRealDiff(iRoi))/nperms;
     
+    %FFT Phase RFX
+    meanPermPhDiff(iRoi,:) = mean(permSubFftPhDiff(:,iRoi,:));%average over subjects
+    meanRealPhDiff(iRoi) = mean(realSubFftPhDiff(:,iRoi));%average over subjects
+    pVal_ph_rfx(iRoi) = sum(meanPermPhDiff(iRoi,:) >= meanRealPhDiff(iRoi))/nperms;
 %     %FFT RFX
 %     meanPermFftDiff(iRoi,:) = mean(permSubFftDiff(:,iRoi,:));%average over subjects
 %     meanRealFftDiff(iRoi) = mean(realSubFftDiff(:,iRoi));%average over subjects
@@ -295,6 +326,7 @@ for iRoi= ROIs
     pVal_otherVar(iRoi) = sum(meanPermOtherStdDiff(iRoi,:) >= meanRealOtherStdDiff(iRoi))/nperms;
     pVal_baselineVar(iRoi) = sum(meanPermBaselineStdDiff(iRoi,:) >= meanRealBaselineStdDiff(iRoi))/nperms;
 
+    pVal_phMean(iRoi) = sum(meanPermMeanPhDiff(iRoi,:) >= meanRealFftPhDiff(iRoi))/nperms;
     pVal_ampMean(iRoi) = sum(meanPermMeanAmpDiff(iRoi,:) >= meanRealFftAmpDiff(iRoi))/nperms;
     pVal_stdMean(iRoi) = sum(meanPermMeanStdDiff(iRoi,:) >= meanRealMeanStdDiff(iRoi))/nperms;
     pVal_stdMedian(iRoi) = sum(meanPermMedianStdDiff(iRoi,:) >= meanRealMedianStdDiff(iRoi))/nperms;
@@ -304,7 +336,7 @@ for iRoi= ROIs
     
 end
 pVal_rfx
-pVal_ffx
+pVal_ph_rfx
 % pVal_fft_rfx
 pVal_var
 % pVal_var_timecourse*trialLength
@@ -316,6 +348,7 @@ pVal_baselineVar
 pVal_ampMean
 pVal_stdMean %mean trial amplitude measured by std
 pVal_stdMedian
+pVal_phMean
 
 %RT variability
 permRTvar = squeeze(mean(permSubRTvar));
@@ -327,6 +360,7 @@ pVal_RTvar = sum(permRTvarDiff >= realRTvarDiff)/nperms;
 permMeanRT = squeeze(mean(permSubRT));
 permRTdiff = permMeanRT(2,:)-permMeanRT(1,:);
 realMeanRT = mean(realSubRT);
+realStdRT = std(realSubRT);
 realRTdiff = realMeanRT(2) - realMeanRT(1);
 pVal_RT = sum(permRTdiff >= realRTdiff)/nperms;
 
@@ -400,48 +434,26 @@ iRoi=2;
 
 smallSubDiff = smallSubAmp(:,:,1) - smallSubAmp(:,:,2);
 subStdDiff = mean(subTimepointStd(:,:,2,:),4) - mean(subTimepointStd(:,:,1,:),4);
-[r p] = corr(realSubAmpStdDiff(:,iRoi),subStdDiff(:,iRoi))
-[r p] = corr(realSubPhStdDiff(:,iRoi),subStdDiff(:,iRoi))
-[r p] = corr(realSubPhStdDiff(:,iRoi),realSubAmpStdDiff(:,iRoi))
-
-[r p] = corr(smallSubDiff(:,iRoi),subStdDiff(:,iRoi))
-[r p] = corr(smallSubDiff(:,iRoi),realSubAmpStdDiff(:,iRoi))
-[r p] = corr(smallSubDiff(:,iRoi),realSubPhStdDiff(:,iRoi))
 
 
-
-
-%%  correlate amplitude difference and phase variability with RT variability
-% saveFolder= '/Volumes/MH02086153MACDT-Drobo/allMinBehavioral/';
-% load([saveFolder 'RTvariability' onlyCorrectString '.mat'], 'realRTvarDiff','permRTvarDiff','pVal_RTvar',...
-%     'realRTvar','realSubRTvar','trialRT','permRTvar','permSubRTvar','subFolders','nperms',...
-%     'pVal_std_rfx','pVal_baseline_rfx','pVal_var','meanRealStdDiff','realSubStdDiff','meanPermVarDiff',...
-%     'permBaselineDiff','permSubVar','permSubStdDiff','realBaselineDiff','realStdDiff');
 pVal_RTvar
 realSubRTvarDiff = realSubRTvar(:,2) - realSubRTvar(:,1);
-[r p] = corr(realSubRTvar(:,2)-realSubRTvar(:,1),realSubPhStdDiff(:,iRoi))
-[r p] = corr(realSubRTvar(:,2)-realSubRTvar(:,1),smallSubDiff(:,iRoi))
 
 pVal_RT
-[r p] = corr(realSubRT(:,2)-realSubRT(:,1),realSubPhStdDiff(:,iRoi))
-[r p] = corr(realSubRT(:,2)-realSubRT(:,1),smallSubDiff(:,iRoi))
-
+realSubRTdiff = realSubRT(:,2)-realSubRT(:,1);
 
 pVal_stdVar
-[r p] = corr(realSubStdVarDiff(:,iRoi),realSubAmpStdDiff(:,iRoi))
-[r p] = corr(realSubStdVarDiff(:,iRoi),realSubPhStdDiff(:,iRoi))
-[r p] = corr(realSubStdVarDiff(:,iRoi),subStdDiff(:,iRoi))
-[r p] = corr(realSubStdVarDiff(:,iRoi),smallSubDiff(:,iRoi))
 
 %% CORRELATION MATRIX
-[rmat pmat] = corr([smallSubDiff(:,iRoi),subStdDiff(:,iRoi),realSubPhStdDiff(:,iRoi),realSubAmpStdDiff(:,iRoi),realSubRTvarDiff,realSubStdVarDiff(:,iRoi)])
+iRoi=2;
+[rmat pmat] = corr([smallSubDiff(:,iRoi),realSubMeanFftPhDiff(:,iRoi),subStdDiff(:,iRoi),realSubPhStdDiff(:,iRoi),realSubAmpStdDiff(:,iRoi),realSubStdVarDiff(:,iRoi),realSubRTvarDiff,realSubRTdiff]);
 
  i=i+1; figure; clf
  rows=1; 
  cols=2;
 subplot(rows,cols,1)
 imagesc(rmat)
-lbls = {'std amp','timepoint var','FFT ph var','FFT amp var','RT var','std amp var'};
+lbls = {'std amp','mean phase', 'timepoint var','FFT ph var','FFT amp var','std amp var','RT var','mean RT' };
 yticks(1:length(lbls));
 yticklabels(lbls);
 
@@ -517,23 +529,23 @@ subTimepointStdDiff = squeeze(subTimepointStd(:,:,1,:) - subTimepointStd(:,:,2,:
  plot(squeeze(groupMeanVar(:,:,2,:)-groupMeanVar(:,:,1,:)),'k','linewidth',2);
   title('mean timepoint variability');
   
- % mean response derivative
- i=i+1; figure; clf
- cols=5;
- rows=ceil(length(goodSubs)/cols);
- for iSub=1:length(goodSubs)
-     subplot(rows,cols,iSub)
-     for rwd=1:2
-         plot(squeeze(abs(diff(subResponse(goodSubs(iSub),iRoi,rwd,:)))),'color', plotColors{rwd},'linewidth',2);
-         hold on
-     end
- end
- subplot(rows,cols,rows*cols)
- for rwd=1:2
-     plot(squeeze(abs(diff(groupMeanVar(:,:,rwd,:)))),'color', plotColors{rwd},'linewidth',3);
-     hold on
- end
- title('derivative of mean response');
+%  % mean response derivative
+%  i=i+1; figure; clf
+%  cols=5;
+%  rows=ceil(length(goodSubs)/cols);
+%  for iSub=1:length(goodSubs)
+%      subplot(rows,cols,iSub)
+%      for rwd=1:2
+%          plot(squeeze(abs(diff(subResponse(goodSubs(iSub),iRoi,rwd,:)))),'color', plotColors{rwd},'linewidth',2);
+%          hold on
+%      end
+%  end
+%  subplot(rows,cols,rows*cols)
+%  for rwd=1:2
+%      plot(squeeze(abs(diff(groupMeanVar(:,:,rwd,:)))),'color', plotColors{rwd},'linewidth',3);
+%      hold on
+%  end
+%  title('derivative of mean response');
  
  
  for iRoi = 1:length(roiNames)
@@ -579,3 +591,9 @@ subTimepointStdDiff = squeeze(subTimepointStd(:,:,1,:) - subTimepointStd(:,:,2,:
 %         hold on
 %     end
 % end
+
+%%
+mean(subPropCorrect)
+std(subPropCorrect)
+mean(realSubRT)
+std(realSubRT)

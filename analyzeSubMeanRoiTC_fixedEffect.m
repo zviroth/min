@@ -1,5 +1,5 @@
 dataFolder = '/Volumes/MH02086153MACDT-Drobo/decodingAnalysis/rwd/';
-onlyCorrect=1;
+onlyCorrect=0;
 onlyCorrectString = '';
 if onlyCorrect
     onlyCorrectString = '_correct';
@@ -7,14 +7,17 @@ end
 load([dataFolder 'subMeanRoiTC' onlyCorrectString '.mat'], 'concatInfo',  'subResponse', 'roiMeanTseries', 'meanResponse', 'stdResponse',...
     'roiTC', 'allTrials', ...
     'subdirs', 'roiNames','subTrialResponse','subRunResponse','trialCorrectness', 'trialResponse', 'trialRT', 'propCorrect',...
-    'rwdPupil','meanPupil','expName');
+    'rwdPupil','meanPupil','expName','stairThresh');
 
 clear subMeanResponse trialStd meanTrialStd runStd meanRunStd subRwdStd trialFFTamp trialFFTphase meanTrialFFTamp meanTrialFFTphase 
 clear stdTrialFFTphase runFFTamp runFFTphase meanRunFFTamp meanRunFFTphase stdRunFFTphase subFFTamp subFFTphase
 clear trialMinMax meanTrialMinMax runMinMax meanRunMinMax subRwdMinMax legendCellArray
 clear stdRunMax stdTrialMax
 clear groupLabels pVal
-clear yError yMin yMax
+clear yError yMin yMax permPooledDiff
+clear meanPermFFTphaseStdDiff meanRealFFTphaseStdDiff meanPermFFTampStdDiff meanRealFFTampStdDiff 
+clear permFFTphaseStdDiff realFFTphaseStdDiff  permFFTampStdDiff realFFTampStdDiff 
+clear stdPermFFTamp stdPermFFTphase meanPermDiff meanRealDiff
 
 
 % ROIs = 1:length(roiNames)-1;
@@ -248,9 +251,12 @@ clear allTrials
 % subject 4 = 22
 % subject 16 = outlier of RT and RT std
 goodSubs = [1:3 5:18];
-goodSubs = [1:7 9:10 12 15];
-goodSubs = [8 11 13:14 16:17];
-goodSubs = 1:18;
+goodSubs = [1:3 5:6 8:9 11 13:18];%excluding subject 22 and all double subjects
+
+% goodSubs = [1:7 9:10 12 15];
+% goodSubs = [8 11 13:14 16:17];
+% goodSubs = 1:18;
+% goodSubs = [1:15 17:18];
 for iSub = goodSubs%length(subdirs)
 %     iSub = goodSubs(i)
      for iRoi=1:length(roiNames)
@@ -283,15 +289,16 @@ for p=1:nperms
     for iRoi= ROIs%length(roiNames)
         for rwd=1:2
             permTrials = roiTrials{iRoi}(:,randOrder(firstTrial(rwd):firstTrial(rwd)+numTrials(rwd)-1));
-            permResp(iRoi,rwd,p) = std(mean(permTrials,2));
+            permRoiStd(iRoi,rwd,p) = std(mean(permTrials,2));
         end
     end
 end
+
 for iRoi= ROIs%length(roiNames)
-    realDiff(iRoi) = std(mean(allTrials{iRoi,1},2)) - std(mean(allTrials{iRoi,2},2)); 
+    realPooledDiff(iRoi) = std(mean(allTrials{iRoi,1},2)) - std(mean(allTrials{iRoi,2},2)); 
 %     realDiff(iRoi) = meanRwdStd(iRoi,1) - meanRwdStd(iRoi,2);
-    permDiff = squeeze(permResp(iRoi,1,:) - permResp(iRoi,2,:));
-    pVal(iRoi) = sum(permDiff>realDiff(iRoi))/nperms;
+    permPooledDiff(iRoi,:) = squeeze(permRoiStd(iRoi,1,:) - permRoiStd(iRoi,2,:));
+    pVal(iRoi) = sum(permPooledDiff(iRoi,:)>realPooledDiff(iRoi))/nperms;
 end
     
 pVal(ROIs)
@@ -364,14 +371,14 @@ pVal_sub(:,ROIs);
 %%
 %now combine across subjects for real and permuted data
 for iRoi= ROIs%length(roiNames)
-    meanPermFFTphaseStdDiff = mean(permFFTphaseStdDiff(:,iRoi,:));%mean across subjects
-    meanRealFFTphaseStdDiff = mean(realFFTphaseStdDiff(:,iRoi));
-    meanPermFFTampStdDiff = mean(permFFTampStdDiff(:,iRoi,:));%mean across subjects
-    meanRealFFTampStdDiff = mean(realFFTampStdDiff(:,iRoi));
+    meanPermFFTphaseStdDiff(iRoi,:) = mean(permFFTphaseStdDiff(:,iRoi,:));%mean across subjects
+    meanRealFFTphaseStdDiff(iRoi) = mean(realFFTphaseStdDiff(:,iRoi));
+    meanPermFFTampStdDiff(iRoi,:) = mean(permFFTampStdDiff(:,iRoi,:));%mean across subjects
+    meanRealFFTampStdDiff(iRoi) = mean(realFFTampStdDiff(:,iRoi));
     
     
-    pVal_FFTphase(iRoi) = sum(meanPermFFTphaseStdDiff < meanRealFFTphaseStdDiff)/nperms;
-    pVal_FFTamp(iRoi) = sum(meanPermFFTampStdDiff < meanRealFFTampStdDiff)/nperms;
+    pVal_FFTphase(iRoi) = sum(meanPermFFTphaseStdDiff(iRoi,:) < meanRealFFTphaseStdDiff(iRoi))/nperms;
+    pVal_FFTamp(iRoi) = sum(meanPermFFTampStdDiff(iRoi,:) < meanRealFFTampStdDiff(iRoi))/nperms;
     
     for rwd=1:2
         for p=1:nperms
@@ -391,8 +398,33 @@ pVal_FFTphase
 pVal_FFTamp
 pVal_subPerm
 toc
-%%
 figure(7)
+clf;
+rows=1;
+cols=4;
+bins=100;
+subplot(rows,cols,1)
+hist(permPooledDiff(1,:),bins)
+vline(realPooledDiff(1),'r');
+vline(prctile(permPooledDiff(1,:),95),'g');
+title('STD, trial permutation across subjects');
+subplot(rows,cols,2)
+hist(meanPermDiff(1,:),bins)
+vline(meanRealDiff(1),'r');
+vline(prctile(meanPermDiff(1,:),95),'g');
+title('STD, trial permutation within subjects');
+subplot(rows,cols,3)
+hist(meanPermFFTampStdDiff(1,:),bins)
+vline(meanRealFFTampStdDiff(1),'r');
+vline(prctile(meanPermFFTampStdDiff(1,:),95),'g');
+title('FFT amp STD, within');
+subplot(rows,cols,4)
+hist(meanPermFFTphaseStdDiff(1,:),bins)
+vline(meanRealFFTphaseStdDiff(1),'r');
+vline(prctile(meanPermFFTphaseStdDiff(1,:),95),'g');
+title('FFT phase STD, within');
+%%
+figure(8)
 clf
 % meanRwdStd(roi,rwd)
 
@@ -413,7 +445,7 @@ subMeanPropCorrect = cellfun(@mean, propCorrect);
 [a pVal_propCorrect] = ttest(subMeanPropCorrect(:,1), subMeanPropCorrect(:,2));
 
 %%
-figure(8)
+figure(9)
 clf
 minVal = min(min(real(subMeanFFT(:))),min(imag(subMeanFFT(:))));
 maxVal = max(max(real(subMeanFFT(:))),max(imag(subMeanFFT(:))));
@@ -433,8 +465,11 @@ for i= 1:length(ROIs)%1:length(roiNames)
     axis image
 end
 %%
-figure(9)
+figure(10)
 clf
+rows=2;
+cols = ceil(length(subdirs)/2);
+
 for iSub = 1:length(subdirs)-1
     subplot(rows,cols,iSub)
     for rwd=1:2
@@ -446,13 +481,14 @@ end
 legend('high', 'low')
 
 %% Mean proportion correct
-figure(10)
+figure(11)
 clf
 for iSub = 1:length(subdirs)
    for rwd=1:2
        meanPropCorrect(iSub,rwd) = mean(propCorrect{iSub,rwd});
        meanRT(iSub,rwd) = mean(trialRT{iSub,rwd,r});
        stdRT(iSub,rwd) = std(trialRT{iSub,rwd,r});
+       meanThresh(iSub,rwd) = mean(stairThresh{iSub,rwd}(:));
    end 
 end
 subPropDiff = meanPropCorrect(:,1) - meanPropCorrect(:,2);
@@ -462,9 +498,23 @@ plot(zscore(subPropDiff))
 hold all
 plot(zscore(subRTdiff))
 plot(zscore(subRTstdDiff))
-legend('prop correct', 'RT mean','RT std')
+plot(zscore(meanThresh))
+legend('prop correct', 'RT mean','RT std','thresh')
 
 plotColors = {[0 0 1], [1 0 0], [0 1 0], [0.5 1 0.2]};
 plotStyles = {'-','--',':','-.','-','--',':','-.'};
 % subRwdDiff = subRwdStd(:,:,1)-subRwdStd(:,:,2);
 
+%% Average time series across subjects, for each ROI
+%% FFT of time series per subject and ROI
+for iSub=1:length(subdirs)
+    for i= 1:length(ROIs)%1:length(roiNames)
+        iRoi = ROIs(i);
+        for rwd=1:2
+            f = fft(roiMeanTseries{iSub,iRoi,rwd}(:)); 
+            ampF = abs(f);
+            cycles = length(ampF)/10;
+            snr(iSub,iRoi,rwd) = ampF(cycles)/sum(ampF([1:cycles-1 cycles+1:end]));
+        end
+    end
+end

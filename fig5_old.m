@@ -179,14 +179,6 @@ binMeanAmp = squeeze(mean(subBinAmp,1)); %mean over subjects. (iRoi,ibin,rwd)
 binStdAmp = squeeze(std(subBinAmp,0,1)); %(iRoi,ibin,rwd)
 binDiffAmp = squeeze(binMeanAmp(:,:,1) - binMeanAmp(:,:,2));%(iRoi,ibin)
 
-temp = fft(subBinResponse,[],5);
-subBinPh = angle(temp(:,:,:,:,2));
-binMeanPh = squeeze(circ_mean(subBinPh));
-binStdPh = squeeze(circ_std(subBinPh));
-subBinPhDiff = squeeze(circ_dist(subBinPh(:,:,:,1),subBinPh(:,:,:,2)));
-binMeanPhDiff = squeeze(mean(subBinPhDiff));
-binStdPhDiff = squeeze(std(subBinPhDiff));
-
 subBinDiff = squeeze(subBinAmp(:,:,:,1) - subBinAmp(:,:,:,2));%(iSub,iRoi,ibin)
 binMeanDiff = squeeze(mean(subBinDiff));
 binStdDiff = squeeze(std(subBinDiff));
@@ -228,11 +220,10 @@ binFftPhVarDiffStd = squeeze(std(binSubFftPhVarDiff));
 i=1;
 figure(i)
 clf
-rows=2;
+rows=1;
 cols = 9;
-subplots = {1:3, 4:6, 7 , 9, cols+1:cols+3, cols+4:cols+6, cols+7 , cols+9};
+subplots = {1:3, 4:6, 7 , 9};
 for r= 1:length(ROIs)
-    %amplitude
     subplot(rows,cols,subplots{1});
     iRoi=ROIs(r);
     for rwd=1:2
@@ -245,41 +236,15 @@ for r= 1:length(ROIs)
     hold on
     plot(binCenters, squeeze(binMeanAmp(iRoi,:,1) -binMeanAmp(iRoi,:,2)),'k.-','linewidth',linewidth,'markersize',markersize);
     hline(0);
-    
-    %latency
-    subplot(rows,cols,cols+subplots{1});
-    iRoi=ROIs(r);
-    for rwd=1:2
-        dsErrorsurface(binCenters, squeeze(binMeanPh(iRoi,:,rwd)), squeeze(binStdPh(iRoi,:,rwd))./sqrt(size(subBinAmp,1)), dsSurfaceContrast*plotColors{rwd},dsSurfaceAlpha);
-        hold on
-        plot(binCenters, squeeze(binMeanPh(iRoi,:,rwd)),'.-','Color', plotColors{rwd},'linewidth',linewidth,'markersize',markersize);
-    end
-    subplot(rows,cols,cols+subplots{2});
-    dsErrorsurface(binCenters, binMeanPhDiff(iRoi,:), binStdPhDiff(iRoi,:)./sqrt(size(subBinAmp,1)), [0 0 0],dsSurfaceAlpha);
-    hold on
-    plot(binCenters, binMeanPhDiff(iRoi,:),'k.-','linewidth',linewidth,'markersize',markersize);
-    hline(0);
-    
 end
 
-for isubplot=[1:2 5:6]%length(subplots)
+for isubplot=1:2%length(subplots)
     subplot(rows,cols,subplots{isubplot});
-    switch isubplot
-        case 1
-            ylabel('response amplitude (std)');
-        case 2
-            ylabel('\Delta response amplitude (std)');
-        case 5
-            ylabel('response timing (rad)');
-        case 6
-            ylabel('\Delta response timing (rad)');
+    if mod(isubplot,2)==0
+        ylabel('\Delta response amplitude (std)');
+    else
+        ylabel('response amplitude (std)');
     end
-             
-%     if mod(isubplot,2)==0
-%         ylabel('\Delta response amplitude (std)');
-%     else
-%         ylabel('response amplitude (std)');
-%     end
     
     xlabel('eccentricity (deg)');
         drawPublishAxis('xLabelOffset', -8/64,'yLabelOffset', -12/64, 'xAxisMargin', 4/64, 'yAxisMargin', 0/64,'xAxisMinMaxSetByTicks',1,...
@@ -287,7 +252,7 @@ for isubplot=[1:2 5:6]%length(subplots)
           axis square
 end
 
-set(gcf,'position',[10 10 25 	14]);
+set(gcf,'position',[10 10 25 	6]);
 % set(gcf,'position',[10 10 40 2*10]);
 print('-painters','-dpdf',['~/Documents/MATLAB/min/figures/fig5_' ConcatProjStr '.pdf']);
 

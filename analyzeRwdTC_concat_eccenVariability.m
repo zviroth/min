@@ -7,7 +7,7 @@ curFolder = pwd;
 dataFolder = '/Volumes/MH02086153MACDT-Drobo/allMinSubjects_concatenated/';
 subFolders = {'000520180116', '0008i20180213', '0016i20180207', '002220171212', '003220180105', '0034i20180209', '003520180328', '004020180328','004120180320', '0042i20180412', '0045i20180309', '0046i20180409', '0049i20180404', '005220180621'};
 
-nperms=1000;
+nperms=10000;
 onlyCorrectString = '';
 if onlyCorrect==1
     onlyCorrectString = '_correct';
@@ -139,6 +139,10 @@ for iSub = 1:length(goodSubs)%length(subdirs)
                 subBinFftPhStd(iSub,iRoi,ibin,rwd) = circ_std(roiBinFftPh');
                 roiBunFftOther = sum(abs(temp([1 3:end],:)));
                 subBinFftOtherStd(iSub,iRoi,ibin,rwd) = std(roiBunFftOther);
+                
+                singleTrialStd = std(subBinTrialResponse{iSub,iRoi,ibin,rwd});
+                subBinStdVar(iSub,iRoi,ibin,rwd) = std(singleTrialStd);
+                subBinStdMean(iSub,iRoi,ibin,rwd) = mean(singleTrialStd);
 
             end
 
@@ -211,6 +215,10 @@ for iSub = 1:length(goodSubs)%length(subdirs)
                     permSubPhStd(iSub,iRoi,ibin,rwd,p) = circ_std(permFftPh');
                     permFftOther = sum(abs(temp([1 3:end],:)));
                     permSubOtherStd(iSub,iRoi,ibin,rwd,p) = std(permFftOther);
+                    
+                    singleTrialStd = std(permTrials);
+                    permSubStdVar(iSub,iRoi,ibin,rwd,p) = std(singleTrialStd);
+                    permSubStdMean(iSub,iRoi,ibin,rwd,p) = mean(singleTrialStd);
                 end
             end
         end
@@ -231,11 +239,14 @@ for iSub = 1:length(goodSubs)%length(subdirs)
             realSubAmpStdDiff(iSub,iRoi,ibin) = subBinFftAmpStd(iSub,iRoi,ibin,2) - subBinFftAmpStd(iSub,iRoi,ibin,1);
             realSubPhStdDiff(iSub,iRoi,ibin) = subBinFftPhStd(iSub,iRoi,ibin,2) - subBinFftPhStd(iSub,iRoi,ibin,1);
             realSubOtherStdDiff(iSub,iRoi,ibin) = subBinFftOtherStd(iSub,iRoi,ibin,2) - subBinFftOtherStd(iSub,iRoi,ibin,1);            
+            realSubStdVarDiff(iSub,iRoi,ibin) = subBinStdVar(iSub,iRoi,ibin,2) - subBinStdVar(iSub,iRoi,ibin,1);
+            realSubStdMeanDiff(iSub,iRoi,ibin) = subBinStdMean(iSub,iRoi,ibin,2) - subBinStdMean(iSub,iRoi,ibin,1);
 
             permSubAmpStdDiff(iSub,iRoi,ibin,:) = squeeze(permSubAmpStd(iSub,iRoi,ibin,2,:) - permSubAmpStd(iSub,iRoi,ibin,1,:));
             permSubPhStdDiff(iSub,iRoi,ibin,:) = squeeze(permSubPhStd(iSub,iRoi,ibin,2,:) - permSubPhStd(iSub,iRoi,ibin,1,:));
             permSubOtherStdDiff(iSub,iRoi,ibin,:) = squeeze(permSubOtherStd(iSub,iRoi,ibin,2,:) - permSubOtherStd(iSub,iRoi,ibin,1,:));
-
+            permSubStdVarDiff(iSub,iRoi,ibin,:) = squeeze(permSubStdVar(iSub,iRoi,ibin,2,:) - permSubStdVar(iSub,iRoi,ibin,1,:));
+            permSubStdMeanDiff(iSub,iRoi,ibin,:) = squeeze(permSubStdMean(iSub,iRoi,ibin,2,:) - permSubStdMean(iSub,iRoi,ibin,1,:));
         end
 
     end
@@ -245,11 +256,14 @@ permStdDiff = squeeze(mean(permSubStdDiff));%mean over subjects. permStd(iRoi,ib
 meanRealAmpStdDiff = squeeze(mean(realSubAmpStdDiff));%mean over subjects
 meanRealPhStdDiff = squeeze(mean(realSubPhStdDiff));%mean over subjects
 meanRealOtherStdDiff = squeeze(mean(realSubOtherStdDiff));%mean over subjects
+meanRealStdVarDiff = squeeze(mean(realSubStdVarDiff));%variability of amplitude measured by std
+meanRealStdMeanDiff = squeeze(mean(realSubStdMeanDiff));%difference in single trial std
 
 meanPermAmpStdDiff = squeeze(mean(permSubAmpStdDiff));%mean over subjects
 meanPermPhStdDiff = squeeze(mean(permSubPhStdDiff));%mean over subjects
 meanPermOtherStdDiff = squeeze(mean(permSubOtherStdDiff));%mean over subjects
-
+meanPermStdVarDiff = squeeze(mean(permSubStdVarDiff));%mean over subjects
+meanPermStdMeanDiff= squeeze(mean(permSubStdMeanDiff));%mean over subjects
         
 hypoth = pVal_sub<0.05;
 % pVal_sub(:,ROIs);
@@ -282,15 +296,22 @@ for iRoi= ROIs
         pVal_ampVar(iRoi,ibin) = sum(meanPermAmpStdDiff(iRoi,ibin,:) > meanRealAmpStdDiff(iRoi,ibin))/nperms;
         pVal_phVar(iRoi,ibin) = sum(meanPermPhStdDiff(iRoi,ibin,:) > meanRealPhStdDiff(iRoi,ibin))/nperms;
         pVal_otherVar(iRoi,ibin) = sum(meanPermOtherStdDiff(iRoi,ibin,:) > meanRealOtherStdDiff(iRoi,ibin))/nperms;
+        
+        %STD amplitude variability
+        pVal_stdVar(iRoi,ibin) = sum(meanPermStdVarDiff(iRoi,ibin,:) > meanRealStdVarDiff(iRoi,ibin))/nperms;
+        %single trial STD amplitude mean
+        pVal_stdMean(iRoi,ibin) = sum(meanPermStdMeanDiff(iRoi,ibin,:) > meanRealStdMeanDiff(iRoi,ibin))/nperms;
     end
 end
 pVal_rfx
 pVal_ffx
-pVal_var_timecourse
+pVal_var_timecourse;
 pVal_var
 pVal_ampVar
 pVal_phVar
 pVal_otherVar
+pVal_stdVar
+pVal_stdMean
 %%
 i=1;
 figure(i)

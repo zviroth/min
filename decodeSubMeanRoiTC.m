@@ -1,5 +1,5 @@
 dataFolder = '/Volumes/MH02086153MACDT-Drobo/decodingAnalysis/rwd/';
-onlyCorrect=1;
+onlyCorrect=0;
 onlyCorrectString = '';
 if onlyCorrect
     onlyCorrectString = '_correct';
@@ -77,7 +77,6 @@ for iSub = 1:length(subdirs)
 %             stdTrialFFTphase(iSub,iRoi,rwd) = std(trialFFTphase{iSub,iRoi,rwd});
             [s s0] =  circ_std(trialFFTphase{iSub,iRoi,rwd}');
             stdTrialFFTphase(iSub,iRoi,rwd) = s0;
-            stdTrialFFTamp(iSub,iRoi,rwd) = std(trialFFTamp{iSub,iRoi,rwd},0,2);
             
             runFFT = fft(subRunResponse{iSub,iRoi,rwd});
             runFFTamp{iSub,iRoi,rwd} = abs(runFFT(2,:));
@@ -201,12 +200,31 @@ for i= 1:length(ROIs)%iRoi= ROIs%1:length(roiNames)
     line([i-0.5*xshift i+0.5*xshift], [meanRwdStd(iRoi,1) meanRwdStd(iRoi,2)],'linewidth',linewidth/2, 'color', 'k','linewidth',linewidth);
 end
 
+% 
+% xlim([0 length(roiNames)+1]);
+% xticks(1:length(roiNames));
+% xticklabels(roiNames);
 
 xlim([0 length(groupLabels)+1]);
 xticks(1:length(groupLabels));
 xticklabels(groupLabels);
 
 
+
+% %%
+% figure(4)
+% clf
+% cols=ceil(length(subdirs)/2);
+% rows = ceil(length(subdirs)/cols);
+% for iSub = 1:length(subdirs)
+%     subplot(rows,cols,iSub)
+%     for iRoi= 1:2%length(roiNames)
+%         for rwd=1:2
+%             plot(squeeze(subResponse(iSub,iRoi,rwd,:)), plotStyles{iRoi}, 'Color', plotColors{rwd}, 'linewidth', 1);
+%             hold on
+%         end
+%     end
+% end
 
 %% average timecourse for all ROIs
 figure(5)
@@ -238,233 +256,3 @@ for iSub = 1:length(subdirs)
         hold on
     end
 end
-
-
-
-%% PERMUTATIONS
-% first combine all trials across all subjects
-% we are recreating allTrials, to include only good subjects
-clear allTrials
-% subject 4 = 22
-% subject 16 = outlier of RT and RT std
-goodSubs = [1:3 5:18];
-goodSubs = [1:7 9:10 12 15];
-goodSubs = [8 11 13:14 16:17];
-goodSubs = 1:18;
-for iSub = goodSubs%length(subdirs)
-%     iSub = goodSubs(i)
-     for iRoi=1:length(roiNames)
-        for rwd=1:2
-            reshapedTrials = reshape(subTrialResponse{iSub,iRoi,rwd},10,[]);
-            if iSub==goodSubs(1)
-                allTrials{iRoi,rwd} = reshapedTrials;
-            else
-                allTrials{iRoi,rwd} = [allTrials{iRoi,rwd} reshapedTrials];
-            end
-        end
-     end
-end
-
-nperms=1000;
-for rwd=1:2
-    numTrials(rwd) = size(allTrials{1,rwd},2);
-    if rwd==1
-        firstTrial(rwd)=1;
-    else %rwd==2
-        firstTrial(rwd)=numTrials(1)+1;
-    end
-end
-for iRoi=ROIs%length(roiNames)
-   roiTrials{iRoi} = [allTrials{iRoi,1} allTrials{iRoi,2}]; 
-end
-
-for p=1:nperms
-    randOrder = randperm(numTrials(1)+numTrials(2));
-    for iRoi= ROIs%length(roiNames)
-        for rwd=1:2
-            permTrials = roiTrials{iRoi}(:,randOrder(firstTrial(rwd):firstTrial(rwd)+numTrials(rwd)-1));
-            permResp(iRoi,rwd,p) = std(mean(permTrials,2));
-        end
-    end
-end
-for iRoi= ROIs%length(roiNames)
-    realDiff(iRoi) = std(mean(allTrials{iRoi,1},2)) - std(mean(allTrials{iRoi,2},2)); 
-%     realDiff(iRoi) = meanRwdStd(iRoi,1) - meanRwdStd(iRoi,2);
-    permDiff = squeeze(permResp(iRoi,1,:) - permResp(iRoi,2,:));
-    pVal(iRoi) = sum(permDiff>realDiff(iRoi))/nperms;
-end
-    
-pVal(ROIs)
-
-for iRoi = ROIs
-   [h pVal_ttest(iRoi)] = ttest(subRwdStd(:,iRoi,1),subRwdStd(:,iRoi,2));
-end
-
-
-%% SINGLE SUBJECT PERMUTATIONS
-tic
-pVal_sub = ones(length(subdirs),2);
-for iSub = goodSubs%length(subdirs)
-    clear subTrials permStd
-    for rwd=1:2
-%         for iRoi=1:length(roiNames)
-%             subTrials{iRoi,rwd} = reshape(subTrialResponse{iSub,iRoi,rwd},10,[]);
-%         end
-        numTrials(iSub,rwd) = size(subTrialResponse{iSub,1,rwd},2);
-        if rwd==1
-            firstTrial(rwd)=1;
-        else %rwd==2
-            firstTrial(rwd)=numTrials(iSub,1)+1;
-        end
-    end
-    for iRoi=ROIs%length(roiNames)
-        roiTrials{iRoi} = [subTrialResponse{iSub,iRoi,1} subTrialResponse{iSub,iRoi,2}];
-        % FFT of each trial
-        roiTrialsFFT{iRoi} = fft(roiTrials{iRoi});
-    end
-    
-    for p=1:nperms
-        randOrder = randperm(numTrials(iSub,1)+numTrials(iSub,2));
-        for iRoi= ROIs%length(roiNames)
-            for rwd=1:2
-                permTrials = roiTrials{iRoi}(:,randOrder(firstTrial(rwd):firstTrial(rwd)+numTrials(iSub,rwd)-1));
-                permSubResp(iSub,iRoi,rwd,p,:) = mean(permTrials,2);
-                permResp(iSub,iRoi,rwd,p) = std(permSubResp(iSub,iRoi,rwd,p,:),0,5);
-                permFFT = roiTrialsFFT{iRoi}(:,randOrder(firstTrial(rwd):firstTrial(rwd)+numTrials(iSub,rwd)-1));
-%                 permFFT = fft(permTrials);
-                permFFTamp = abs(permFFT(2,:));
-                permFFTphase = angle(permFFT(2,:));
-                [s s0] =  circ_std(permFFTphase');
-                stdPermFFTphase(iRoi,rwd,p) = s0;
-                stdPermFFTamp(iRoi,rwd,p) = std(permFFTamp);
-
-            end
-        end
-    end
-    
-    for iRoi= ROIs%length(roiNames)
-        for rwd = 1:2
-            realSubResp(iSub,iRoi,rwd,:) = mean(subTrialResponse{iSub,iRoi,rwd},2);
-        end
-        realDiff(iRoi) = std(realSubResp(iSub,iRoi,2,:)) - std(realSubResp(iSub,iRoi,2,:));
-        %     realDiff(iRoi) = meanRwdStd(iRoi,1) - meanRwdStd(iRoi,2);
-        permDiff = squeeze(permResp(iSub,iRoi,1,:) - permResp(iSub,iRoi,2,:));
-        pVal_sub(iSub,iRoi) = sum(permDiff>realDiff(iRoi))/nperms;
-        
-        realFFTphaseStdDiff(iSub,iRoi) = stdTrialFFTphase(iSub,iRoi,1) - stdTrialFFTphase(iSub,iRoi,2);
-        permFFTphaseStdDiff(iSub,iRoi,:) = stdPermFFTphase(iRoi,1,:) - stdPermFFTphase(iRoi,2,:);
-%         pVal_FFTphase(iSub,iRoi) = sum(permFFTphaseStdDiff < realFFTphaseStdDiff(iRoi))/nperms;
-        
-        realFFTampStdDiff(iSub,iRoi) = stdTrialFFTamp(iSub,iRoi,1) - stdTrialFFTamp(iSub,iRoi,2);
-        permFFTampStdDiff(iSub,iRoi,:) = stdPermFFTamp(iRoi,1,:) - stdPermFFTamp(iRoi,2,:);
-%         pVal_FFTamp(iSub,iRoi) = sum(permFFTampStdDiff < realFFTampStdDiff(iRoi))/nperms;
-    end
-end
-pVal_sub(:,ROIs);
-%%
-%now combine across subjects for real and permuted data
-for iRoi= ROIs%length(roiNames)
-    meanPermFFTphaseStdDiff = mean(permFFTphaseStdDiff(:,iRoi,:));%mean across subjects
-    meanRealFFTphaseStdDiff = mean(realFFTphaseStdDiff(:,iRoi));
-    meanPermFFTampStdDiff = mean(permFFTampStdDiff(:,iRoi,:));%mean across subjects
-    meanRealFFTampStdDiff = mean(realFFTampStdDiff(:,iRoi));
-    
-    
-    pVal_FFTphase(iRoi) = sum(meanPermFFTphaseStdDiff < meanRealFFTphaseStdDiff)/nperms;
-    pVal_FFTamp(iRoi) = sum(meanPermFFTampStdDiff < meanRealFFTampStdDiff)/nperms;
-    
-    for rwd=1:2
-        for p=1:nperms
-            meanPermResp(iRoi,rwd,p,:) = mean(squeeze(permSubResp(:,iRoi,rwd,p,:)) .* repmat(numTrials(:,rwd),1,10)); %averaging across subjects, weighted by #trials
-            meanPermAmp(iRoi,rwd,p) = std(meanPermResp(iRoi,rwd,p,:));
-            
-        end
-        meanRealResp(iRoi,rwd,:) = mean(squeeze(realSubResp(:,iRoi,rwd,:)) .* repmat(numTrials(:,rwd),1,10)); %averaging across subjects, weighted by #trials
-        meanRealAmp(iRoi,rwd) = std(meanRealResp(iRoi,rwd,:));
-        
-    end
-    meanRealDiff(iRoi) = meanRealAmp(iRoi,1) - meanRealAmp(iRoi,2);
-    meanPermDiff(iRoi,:) = meanPermAmp(iRoi,1,:) - meanPermAmp(iRoi,2,:);
-    pVal_subPerm(iRoi) = sum(meanPermDiff(iRoi,:) > meanRealDiff(iRoi))/nperms;
-end
-pVal_FFTphase
-pVal_FFTamp
-pVal_subPerm
-toc
-%%
-figure(7)
-clf
-% meanRwdStd(roi,rwd)
-
-% groupLabels = roiNames;
-for rwd=1:2
-    yError(:,rwd) = std(subRwdStd(:,ROIs,rwd));
-    yMin(:,rwd) = min(subRwdStd(:,ROIs,rwd));
-    yMax(:,rwd) = max(subRwdStd(:,ROIs,rwd));
-end
-yAxisMin = min(subRwdStd(:));
-yAxisMax = max(subRwdStd(:));
-dispValues=0;
-mybar(meanRwdStd(ROIs,:), 'groupLabels',groupLabels, 'withinGroupLabels',{'H','L'} ,'yAxisMin', yAxisMin, 'yAxisMax', yAxisMax,'dispValues',dispValues,...
-    'yError', yError, 'yMin', yMin, 'yMax', yMax);
-
-%%
-subMeanPropCorrect = cellfun(@mean, propCorrect);
-[a pVal_propCorrect] = ttest(subMeanPropCorrect(:,1), subMeanPropCorrect(:,2));
-
-%%
-figure(8)
-clf
-minVal = min(min(real(subMeanFFT(:))),min(imag(subMeanFFT(:))));
-maxVal = max(max(real(subMeanFFT(:))),max(imag(subMeanFFT(:))));
-maxVal = max(abs(subMeanFFT(:)));
-for i= 1:length(ROIs)%1:length(roiNames)
-    subplot(1,length(ROIs),i);
-    iRoi = ROIs(i);
-    %     plot(real(subMeanFFT(:,iRoi)), imag(subMeanFFT(:,iRoi)),'.');
-    
-    %     hold all
-%     axis([minVal maxVal minVal maxVal]);
-    axis([-maxVal maxVal -maxVal maxVal]);
-    line([-maxVal maxVal], [0  0],'color',[0 0 0],'linewidth', 2);
-    line([0  0], [-maxVal maxVal],'color',[0 0 0],'linewidth', 2);
-    hold all
-    scatter(real(subMeanFFT(:,iRoi)), imag(subMeanFFT(:,iRoi)),50,'filled');
-    axis image
-end
-%%
-figure(9)
-clf
-for iSub = 1:length(subdirs)-1
-    subplot(rows,cols,iSub)
-    for rwd=1:2
-        meanPupil{iSub,rwd} = nanmean(rwdPupil{iSub,rwd})';
-        plot(meanPupil{iSub,rwd}, 'Color', plotColors{rwd}, 'linewidth', 1)
-        hold on
-    end
-end
-legend('high', 'low')
-
-%% Mean proportion correct
-figure(10)
-clf
-for iSub = 1:length(subdirs)
-   for rwd=1:2
-       meanPropCorrect(iSub,rwd) = mean(propCorrect{iSub,rwd});
-       meanRT(iSub,rwd) = mean(trialRT{iSub,rwd,r});
-       stdRT(iSub,rwd) = std(trialRT{iSub,rwd,r});
-   end 
-end
-subPropDiff = meanPropCorrect(:,1) - meanPropCorrect(:,2);
-subRTdiff = meanRT(:,1) - meanRT(:,2);
-subRTstdDiff = stdRT(:,1) - stdRT(:,2);
-plot(zscore(subPropDiff))
-hold all
-plot(zscore(subRTdiff))
-plot(zscore(subRTstdDiff))
-legend('prop correct', 'RT mean','RT std')
-
-plotColors = {[0 0 1], [1 0 0], [0 1 0], [0.5 1 0.2]};
-plotStyles = {'-','--',':','-.','-','--',':','-.'};
-% subRwdDiff = subRwdStd(:,:,1)-subRwdStd(:,:,2);
-

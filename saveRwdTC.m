@@ -1,4 +1,4 @@
-onlyCorrect=0;
+onlyCorrect=1;
 saveFolder = '/Volumes/MH02086153MACDT-Drobo/decodingAnalysis/rwd/';
 
 % dataFolder{1} = '/Volumes/MH02086153MACDT-Drobo/decodingAnalysis/rwd/';
@@ -15,7 +15,7 @@ roiNames = {'rV1_eccen8', 'lV1_eccen8','rV2_eccen8','lV2_eccen8','rV3_eccen8','l
 % roiNames = {'rV1_eccen8', 'rh_17Networks_16'};
 
 % dataFolder = '/Volumes/MH02086153MACDT-Drobo/CNaP_drive_1/RewardData/probRwdExp/';
-
+trialLength=10;
 subdirs=[];
 for i=1:length(dataFolder)
     cd(dataFolder{i});
@@ -52,9 +52,9 @@ for iSub = 1:length(subdirs)
     v=newView;
     % switch to the concatenation group
     v = viewSet(v, 'curGroup', 'Concatenation');
-    
+    concatGroupNum = viewGet(v,'curGroup');
     % load the event related analysis analysis
-    v = loadAnalysis(v, 'glmAnalStats/GLM.mat');
+%     v = loadAnalysis(v, 'glmAnalStats/GLM.mat');
     
     % load the data
     nScans = viewGet(v, 'nscans');
@@ -62,7 +62,7 @@ for iSub = 1:length(subdirs)
     clear rois
     for iRoi = 1:length(roiNames)
         for iScan = 1:nScans%2 concatenations, 1 for each reward type
-            d{iScan} = viewGet(v, 'd', iScan);
+%             d{iScan} = viewGet(v, 'd', iScan);
             %             concatInfo{iSub,iScan} = viewGet(v, 'concatInfo', iScan);
             s = viewGet(v, 'stimfile', iScan);
             rwdType = s{1}.stimulus.rewardVal;
@@ -75,14 +75,14 @@ for iSub = 1:length(subdirs)
                 keyboard
             end
             
-            roiTC{iRoi,rwdTypeNum} = loadROITSeries(v, roiNames{iRoi}, iScan, [], 'keepNAN',true);
+            roiTC{iSub,iRoi,rwdTypeNum} = loadROITSeries(v, roiNames{iRoi}, iScan, [], 'keepNAN',true);
             concatInfo{iSub,rwdTypeNum} = viewGet(v, 'concatInfo', iScan);
             
             for r=1:length(s)
                     %if subject stopped responding at a certain point we
                     %need to fill in the last incorrect trials:
                     trialCorrectness{iSub,rwdTypeNum}(r,:) = [s{r}.stimulus.trialCorrectness zeros(1,17-size(s{r}.stimulus.trialCorrectness,2))];
-                    trialResponse{iSub,rwdTypeNum,r} = s{r}.stimulus.trialResponse;
+                    trialResponse{iSub,rwdTypeNum}(r,:) = [s{r}.stimulus.trialResponse zeros(1,17-size(s{r}.stimulus.trialResponse,2))];%0 means no response
                     trialRT{iSub,rwdTypeNum,r} = s{r}.stimulus.trialRT;
                     propCorrect{iSub,rwdTypeNum}(r) = s{r}.stimulus.percentCorrect;
                     stairThresh{iSub,rwdTypeNum}(r,:) = [s{r}.stimulus.stair{1}.threshold s{r}.stimulus.stair{2}.threshold];
@@ -114,22 +114,32 @@ for iSub = 1:length(subdirs)
             
         end
         for rwd=1:2
-            roiMeanTseries{iSub,iRoi,rwd}(:) = nanmean(roiTC{iRoi,rwd}.tSeries);%mean across voxels
+            roiMeanTseries{iSub,iRoi,rwd}(:) = nanmean(roiTC{iSub,iRoi,rwd}.tSeries);%mean across voxels
             %             foo = nanmean(rois{iRoi}{rwd}.tSeries(goodVox{iRoi}{selectionRun}==1,:))-1;
-            subTrialResponse{iSub,iRoi,rwd} = reshape(roiMeanTseries{iSub,iRoi,rwd}(:), 10, length(roiMeanTseries{iSub,iRoi,rwd}(:))/10);
+            subTrialResponse{iSub,iRoi,rwd} = reshape(roiMeanTseries{iSub,iRoi,rwd}(:), trialLength, length(roiMeanTseries{iSub,iRoi,rwd}(:))/trialLength);
             temp = trialCorrectness{iSub,rwd}(:,2:end-1);
             trialCorrectnessVec = temp(:);
+                        
+            temp = trialResponse{iSub,rwd}(:,2:end-1);
+            trialResponseVec = temp(:);
+            
             %             numTrials=length(trialCorrectnessVec);
             
             %average per run - ALL TRIALS AVERAGED, NOT ONLY CORRECT TRIALS
             reshapedTrials = reshape(subTrialResponse{iSub,iRoi,rwd},10,15,[]);
             subRunResponse{iSub,iRoi,rwd} = squeeze(mean(reshapedTrials,2));
             
+            
+            %including only correct trials
             if onlyCorrect
                 subTrialResponse{iSub,iRoi,rwd} = subTrialResponse{iSub,iRoi,rwd}(:,trialCorrectnessVec==1);
                 %                 numTrials = sum(trialCorrectnessVec);
+            else % including only trials with a response
+                subTrialResponse{iSub,iRoi,rwd} = subTrialResponse{iSub,iRoi,rwd}(:,trialResponseVec==1);
             end
-            reshapedTrials = reshape(subTrialResponse{iSub,iRoi,rwd},10,[]);
+            
+            
+            reshapedTrials = reshape(subTrialResponse{iSub,iRoi,rwd},trialLength,[]);
             if iSub==1
                 allTrials{iRoi,rwd} = reshapedTrials;
             else
@@ -137,16 +147,26 @@ for iSub = 1:length(subdirs)
             end
             %average per subject
             subResponse(iSub,iRoi,rwd,:) = mean(subTrialResponse{iSub,iRoi,rwd},2);
-%             if iSub==1
-%                 sumResponse(rwd,iRoi,:) = squeeze(subResponse(iSub,iRoi,rwd,:));
-%             else
-%                 sumResponse(rwd,iRoi,:) = sumResponse(rwd,iRoi,:)+squeeze(subResponse(iSub,iRoi,rwd,:));
-%             end
+
             plot(squeeze(subResponse(iSub,iRoi,rwd,:)), plotStyles{iRoi}, 'Color', plotColors{rwd}, 'linewidth', 1);
             hold on
         end
     end
     
+    
+    
+        
+    %load benson eccentricity maps
+    v = viewSet(v, 'curGroup', 'templates');
+    templateGroup = viewGet(v,'curGroup');
+    v = loadAnalysis(v, 'mrDispOverlayAnal/templateRet.mat');
+    for iRoi = 1:length(roiNames)
+        bensonData = loadROIbensonMatching(v,roiNames{iRoi},1,templateGroup,1,concatGroupNum);
+        eccen{iSub,iRoi} = bensonData{1}.eccen;
+        ang{iSub,iRoi} = bensonData{1}.ang;
+        areas{iSub,iRoi} = bensonData{1}.areas;
+    end
+
     title(getLastDir(pwd));
     
     deleteView(v);
@@ -169,8 +189,8 @@ onlyCorrectString = '';
 if onlyCorrect
     onlyCorrectString = '_correct';
 end
-save([saveFolder 'subMeanRoiTC' onlyCorrectString '.mat'], 'concatInfo',  'subResponse', 'roiMeanTseries', 'meanResponse', 'stdResponse',...
+save([saveFolder 'rwdTC' onlyCorrectString '.mat'], 'concatInfo',  'subResponse', 'roiMeanTseries', 'meanResponse', 'stdResponse',...
     'roiTC', 'allTrials', ...
     'subdirs', 'roiNames','subTrialResponse','subRunResponse','trialCorrectness', 'trialResponse', 'trialRT', 'propCorrect',...
-    'rwdPupil','meanPupil','hasEyeData','expName','stairThresh');
+    'rwdPupil','meanPupil','hasEyeData','expName','stairThresh','eccen','ang','areas','trialLength');
 

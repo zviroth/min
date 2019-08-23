@@ -78,7 +78,20 @@ for iSub = goodSubs%length(subdirs)
 %     iSub = goodSubs(i)
      for iRoi=1:length(roiNames)
         for rwd=1:2
-            reshapedTrials = reshape(subTrialResponse{iSub,iRoi,rwd},10,[]);
+%             reshapedTrials = reshape(subTrialResponse{iSub,iRoi,rwd},10,[]);
+            
+                % REMOVE AMPLITUDE VARIABILITY
+                reshapedTrials = reshape(subTrialResponse{iSub,iRoi,rwd},10,[]);
+                temp = fft(reshapedTrials);
+                roiBinFftAmp = abs(temp(2,:));
+                roiBinFftBaseline = abs(temp(1,:));
+                %remove FFT component 1
+%               reshapedTrials = reshapedTrials - repmat(mean(reshapedTrials),10,1);
+                %remove FFT component 2
+                reshapedTrials = (reshapedTrials - repmat(mean(reshapedTrials),10,1))./repmat(roiBinFftAmp,10,1) + repmat(mean(reshapedTrials),10,1);
+                subTrialResponse{iSub,iRoi,rwd} = reshapedTrials;
+               
+                
             if iSub==goodSubs(1)
                 allTrials{iRoi,rwd} = reshapedTrials;
             else
@@ -131,6 +144,24 @@ for iSub = 1:length(goodSubs)%length(subdirs)
                 subBinTrialResponse{iSub,iRoi,ibin,rwd} = reshape(binMeanTseries, trialLength, length(binMeanTseries)/trialLength);
                 
                 
+                
+                
+                % REMOVE AMPLITUDE VARIABILITY
+                reshapedTrials = reshape(subBinTrialResponse{iSub,iRoi,ibin,rwd},trialLength,[]);
+                temp = fft(reshapedTrials);
+                roiBinFftAmp = abs(temp(2,:));
+                roiBinFftBaseline = abs(temp(1,:));
+                %remove FFT component 1
+%               reshapedTrials = reshapedTrials - repmat(mean(reshapedTrials),10,1);
+                %remove FFT component 2
+                reshapedTrials = (reshapedTrials - repmat(mean(reshapedTrials),10,1))./repmat(roiBinFftAmp,10,1) + repmat(mean(reshapedTrials),10,1);
+                subBinTrialResponse{iSub,iRoi,ibin,rwd} = reshapedTrials;
+                
+                
+                
+                
+                
+                
                 subBinTrialResponse{iSub,iRoi,ibin,rwd} = subBinTrialResponse{iSub,iRoi,ibin,rwd}(:,goodTrials);
                 
                 
@@ -150,10 +181,6 @@ for iSub = 1:length(goodSubs)%length(subdirs)
                 roiBinFftPh = angle(temp(2,:));
                 subBinFftAmpVar(iSub,iRoi,ibin,rwd) = std(roiBinFftAmp);
                 subBinFftPhVar(iSub,iRoi,ibin,rwd) = circ_std(roiBinFftPh');
-                
-                singleTrialStd = std(subBinTrialResponse{iSub,iRoi,ibin,rwd});
-                subBinStdVar(iSub,iRoi,ibin,rwd) = std(singleTrialStd);
-                subBinStdMean(iSub,iRoi,ibin,rwd) = mean(singleTrialStd);
 
             end
                 %covariation between voxels
@@ -179,14 +206,6 @@ binMeanAmp = squeeze(mean(subBinAmp,1)); %mean over subjects. (iRoi,ibin,rwd)
 binStdAmp = squeeze(std(subBinAmp,0,1)); %(iRoi,ibin,rwd)
 binDiffAmp = squeeze(binMeanAmp(:,:,1) - binMeanAmp(:,:,2));%(iRoi,ibin)
 
-temp = fft(subBinResponse,[],5);
-subBinPh = angle(temp(:,:,:,:,2));
-binMeanPh = squeeze(circ_mean(subBinPh));
-binStdPh = squeeze(circ_std(subBinPh));
-subBinPhDiff = squeeze(circ_dist(subBinPh(:,:,:,1),subBinPh(:,:,:,2)));
-binMeanPhDiff = squeeze(mean(subBinPhDiff));
-binStdPhDiff = squeeze(std(subBinPhDiff));
-
 subBinDiff = squeeze(subBinAmp(:,:,:,1) - subBinAmp(:,:,:,2));%(iSub,iRoi,ibin)
 binMeanDiff = squeeze(mean(subBinDiff));
 binStdDiff = squeeze(std(subBinDiff));
@@ -200,14 +219,6 @@ binVarStd = squeeze(std(subBinVar,0,1)); % std of variability across subjects. b
 binSubVarDiff = squeeze(subBinVar(:,:,:,2) - subBinVar(:,:,:,1));
 binVarDiffMean = squeeze(mean(binSubVarDiff));
 binVarDiffStd = squeeze(std(binSubVarDiff));
-
-binStdVarMean = squeeze(mean(subBinStdVar));%mean trial std variability
-binStdVarStd = squeeze(std(subBinStdVar));%std across subjects, of trial std variability
-binSubStdVarDiff = squeeze(subBinStdVar(:,:,:,2) - subBinStdVar(:,:,:,1));
-binStdVarDiffMean = squeeze(mean(binSubStdVarDiff));
-binStdVarDiffStd = squeeze(std(binSubStdVarDiff));
-
-% binStdMean = squeeze(mean(subBinStdMean));%mean trial std mean
 
 binFftAmpVarMean = squeeze(mean(subBinFftAmpVar,1)); % mean variability across subjects. binStdMean(iRoi,ibin,rwd,timepoint)
 binFftAmpVarStd = squeeze(std(subBinFftAmpVar,0,1)); % std of variability across subjects. binStdStd(iRoi,ibin,rwd,timepoint)
@@ -228,11 +239,10 @@ binFftPhVarDiffStd = squeeze(std(binSubFftPhVarDiff));
 i=1;
 figure(i)
 clf
-rows=2;
+rows=1;
 cols = 9;
-subplots = {1:3, 4:6, 7 , 9, cols+1:cols+3, cols+4:cols+6, cols+7 , cols+9};
+subplots = {1:3, 4:6, 7 , 9};
 for r= 1:length(ROIs)
-    %amplitude
     subplot(rows,cols,subplots{1});
     iRoi=ROIs(r);
     for rwd=1:2
@@ -245,41 +255,15 @@ for r= 1:length(ROIs)
     hold on
     plot(binCenters, squeeze(binMeanAmp(iRoi,:,1) -binMeanAmp(iRoi,:,2)),'k.-','linewidth',linewidth,'markersize',markersize);
     hline(0);
-    
-    %latency
-    subplot(rows,cols,cols+subplots{1});
-    iRoi=ROIs(r);
-    for rwd=1:2
-        dsErrorsurface(binCenters, squeeze(binMeanPh(iRoi,:,rwd)), squeeze(binStdPh(iRoi,:,rwd))./sqrt(size(subBinAmp,1)), dsSurfaceContrast*plotColors{rwd},dsSurfaceAlpha);
-        hold on
-        plot(binCenters, squeeze(binMeanPh(iRoi,:,rwd)),'.-','Color', plotColors{rwd},'linewidth',linewidth,'markersize',markersize);
-    end
-    subplot(rows,cols,cols+subplots{2});
-    dsErrorsurface(binCenters, binMeanPhDiff(iRoi,:), binStdPhDiff(iRoi,:)./sqrt(size(subBinAmp,1)), [0 0 0],dsSurfaceAlpha);
-    hold on
-    plot(binCenters, binMeanPhDiff(iRoi,:),'k.-','linewidth',linewidth,'markersize',markersize);
-    hline(0);
-    
 end
 
-for isubplot=[1:2 5:6]%length(subplots)
+for isubplot=1:2%length(subplots)
     subplot(rows,cols,subplots{isubplot});
-    switch isubplot
-        case 1
-            ylabel('response amplitude (std)');
-        case 2
-            ylabel('\Delta response amplitude (std)');
-        case 5
-            ylabel('response timing (rad)');
-        case 6
-            ylabel('\Delta response timing (rad)');
+    if mod(isubplot,2)==0
+        ylabel('\Delta response amplitude (std)');
+    else
+        ylabel('response amplitude (std)');
     end
-             
-%     if mod(isubplot,2)==0
-%         ylabel('\Delta response amplitude (std)');
-%     else
-%         ylabel('response amplitude (std)');
-%     end
     
     xlabel('eccentricity (deg)');
         drawPublishAxis('xLabelOffset', -8/64,'yLabelOffset', -12/64, 'xAxisMargin', 4/64, 'yAxisMargin', 0/64,'xAxisMinMaxSetByTicks',1,...
@@ -287,9 +271,9 @@ for isubplot=[1:2 5:6]%length(subplots)
           axis square
 end
 
-set(gcf,'position',[10 10 25 	14]);
+set(gcf,'position',[10 10 25 	6]);
 % set(gcf,'position',[10 10 40 2*10]);
-print('-painters','-dpdf',['~/Documents/MATLAB/min/figures/fig5_' ConcatProjStr '.pdf']);
+% print('-painters','-dpdf',['~/Documents/MATLAB/min/figures/fig5_' ConcatProjStr '.pdf']);
 
 % %%
 % i=i+1;
@@ -335,36 +319,20 @@ hold on
 plot(binCenters, binVarDiffMean(iRoi,:),'k.-','linewidth',linewidth,'markersize',markersize);
 ylabel('\Delta mean variability (std)');
 hline(0);
-%% STD amplitude variability
-binStdVarMean
-binStdVarStd
+%% FFT amplitude variability
 subplot(rows,cols,cols+subplots{1});
 for rwd=1:2
-    dsErrorsurface(binCenters, squeeze(binStdVarMean(iRoi,:,rwd)), squeeze(binStdVarStd(iRoi,:,rwd))./sqrt(size(subBinAmp,1)), dsSurfaceContrast*plotColors{rwd},dsSurfaceAlpha);
+    dsErrorsurface(binCenters, squeeze(binFftAmpVarMean(iRoi,:,rwd)), squeeze(binFftAmpVarStd(iRoi,:,rwd))./sqrt(size(subBinAmp,1)), dsSurfaceContrast*plotColors{rwd},dsSurfaceAlpha);
     hold on
-    plot(binCenters, squeeze(binStdVarMean(iRoi,:,rwd)),'.-','Color', plotColors{rwd},'linewidth',linewidth,'markersize',markersize);
+    plot(binCenters, squeeze(binFftAmpVarMean(iRoi,:,rwd)),'.-','Color', plotColors{rwd},'linewidth',linewidth,'markersize',markersize);
 end
 ylabel('amplitude variability (std)');
 subplot(rows,cols,cols+subplots{2});
-dsErrorsurface(binCenters, binStdVarDiffMean(iRoi,:), binStdVarDiffStd(iRoi,:)./sqrt(size(subBinAmp,1)), [0 0 0],dsSurfaceAlpha);
+dsErrorsurface(binCenters, binFftAmpVarDiffMean(iRoi,:), binFftAmpVarDiffStd(iRoi,:)./sqrt(size(subBinAmp,1)), [0 0 0],dsSurfaceAlpha);
 hold on
-plot(binCenters, binStdVarDiffMean(iRoi,:),'k.-','linewidth',linewidth,'markersize',markersize);
+plot(binCenters, binFftAmpVarDiffMean(iRoi,:),'k.-','linewidth',linewidth,'markersize',markersize);
 ylabel('\Delta amplitude variability (std)');
 hline(0);
-%% FFT amplitude variability
-% subplot(rows,cols,cols+subplots{1});
-% for rwd=1:2
-%     dsErrorsurface(binCenters, squeeze(binFftAmpVarMean(iRoi,:,rwd)), squeeze(binFftAmpVarStd(iRoi,:,rwd))./sqrt(size(subBinAmp,1)), dsSurfaceContrast*plotColors{rwd},dsSurfaceAlpha);
-%     hold on
-%     plot(binCenters, squeeze(binFftAmpVarMean(iRoi,:,rwd)),'.-','Color', plotColors{rwd},'linewidth',linewidth,'markersize',markersize);
-% end
-% ylabel('amplitude variability (std)');
-% subplot(rows,cols,cols+subplots{2});
-% dsErrorsurface(binCenters, binFftAmpVarDiffMean(iRoi,:), binFftAmpVarDiffStd(iRoi,:)./sqrt(size(subBinAmp,1)), [0 0 0],dsSurfaceAlpha);
-% hold on
-% plot(binCenters, binFftAmpVarDiffMean(iRoi,:),'k.-','linewidth',linewidth,'markersize',markersize);
-% ylabel('\Delta amplitude variability (std)');
-% hline(0);
 %% FFT phase variability
 
 subplot(rows,cols,2*cols+subplots{1});
@@ -420,10 +388,6 @@ for iSub = 1:length(goodSubs)%length(subdirs)
         subBinFftAmpVar(iSub,rwd) = std(roiBinFftAmp);
         subBinFftPhVar(iSub,rwd) = circ_std(roiBinFftPh');
         subBinFftOtherVar(iSub,rwd) = std(roiBinFftOther);
-        
-        singleTrialStd = std(reshapedTrials);
-        subStdVar(iSub,rwd) = std(singleTrialStd);
-        subStdMean(iSub,rwd) = mean(singleTrialStd);
     end
 end
 
@@ -445,33 +409,19 @@ for i=1:rewards
 end
 ylabel('mean variability (std)');
 
-%% bar plot of subjects' STD Amplitude variability
+%% bar plot of subjects' FFT Amplitude variability
 subplot(rows,cols,cols+subplots{3})
 for i=1:length(goodSubs)
-    plot(1:rewards,subStdVar(i,:),'Color',subColor(i,:),'linewidth',linewidth);
+    plot(1:rewards,subBinFftAmpVar(i,:),'Color',subColor(i,:),'linewidth',linewidth);
     hold on
 end
-scatter(rwdNum(:),subStdVar(:),markerSize, [subColor; subColor] ,'filled');
+scatter(rwdNum(:),subBinFftAmpVar(:),markerSize, [subColor; subColor] ,'filled');
 % MEAN
 for i=1:rewards
-    scatter(i,mean(subStdVar(:,i)),markerSize*4,[0 0 0],'filled','d');
-    plot(1:rewards,mean(subStdVar),'Color',[0 0 0],'linewidth', 2*linewidth);
+    scatter(i,mean(subBinFftAmpVar(:,i)),markerSize*4,[0 0 0],'filled','d');
+    plot(1:rewards,mean(subBinFftAmpVar),'Color',[0 0 0],'linewidth', 2*linewidth);
 end
 ylabel('amplitude variability (std)');
-
-%% bar plot of subjects' FFT Amplitude variability
-% subplot(rows,cols,cols+subplots{3})
-% for i=1:length(goodSubs)
-%     plot(1:rewards,subBinFftAmpVar(i,:),'Color',subColor(i,:),'linewidth',linewidth);
-%     hold on
-% end
-% scatter(rwdNum(:),subBinFftAmpVar(:),markerSize, [subColor; subColor] ,'filled');
-% % MEAN
-% for i=1:rewards
-%     scatter(i,mean(subBinFftAmpVar(:,i)),markerSize*4,[0 0 0],'filled','d');
-%     plot(1:rewards,mean(subBinFftAmpVar),'Color',[0 0 0],'linewidth', 2*linewidth);
-% end
-% ylabel('amplitude variability (std)');
 
 %% bar plot of subjects' FFT Phase variability
 subplot(rows,cols,2*cols+subplots{3})
@@ -519,14 +469,21 @@ end
 
 set(gcf,'position',[10 10 25 	24]);
 
-print('-painters','-dpdf',['~/Documents/MATLAB/min/figures/fig5_variability_' ConcatProjStr '.pdf']);
+print('-painters','-dpdf',['~/Documents/MATLAB/min/figures/fig5_variabilityRemoved_' ConcatProjStr '.pdf']);
 
 
 %%
+[r p] = corr(smallSubDiff,subMeanVar(:,2)-subMeanVar(:,1))
+[r p] = corr(smallSubDiff,subBinFftAmpVar(:,2)-subBinFftAmpVar(:,1))
+[r p] = corr(smallSubDiff,subBinFftPhVar(:,2)-subBinFftPhVar(:,1))
+[r p] = corr(subMeanVar(:,2)-subMeanVar(:,1),subBinFftAmpVar(:,2)-subBinFftAmpVar(:,1)) %p=0.09
 
-[rmat pmat] = corr([smallSubDiff,subMeanVar(:,2)-subMeanVar(:,1),subBinFftAmpVar(:,2)-subBinFftAmpVar(:,1),...
-    subBinFftPhVar(:,2)-subBinFftPhVar(:,1), subStdMean(:,2)-subStdMean(:,1),subStdVar(:,2)-subStdVar(:,1)]);
-lbls = {'std amp','timepoint var','FFT amp var','FFT ph var','std amp mean','std amp var'};
-
-pmat
+% [r p] = corr(smallSubDiff,subBinFftOtherVar(:,2)-subBinFftOtherVar(:,1))
+% [r p] = corr(subMeanVar(:,2)-subMeanVar(:,1),subBinFftOtherVar(:,2)-subBinFftOtherVar(:,1))
+% [r p] = corr(subBinFftOtherVar(:,2)+subBinFftOtherVar(:,1),subBinFftOtherVar(:,2)-subBinFftOtherVar(:,1))
+ 
+% [r p] = corr(subMeanVar(:,2)+subMeanVar(:,1),subMeanVar(:,2)-subMeanVar(:,1))
+% [r p] = corr(subBinFftAmpVar(:,2)+subBinFftAmpVar(:,1),subBinFftAmpVar(:,2)-subBinFftAmpVar(:,1))
+% [r p] = corr(subBinFftPhVar(:,2)+subBinFftPhVar(:,1),subBinFftPhVar(:,2)-subBinFftPhVar(:,1))
+% [r p] = corr(smallSubAmp(:,2)+smallSubAmp(:,1),smallSubAmp(:,2)-smallSubAmp(:,1))
 
