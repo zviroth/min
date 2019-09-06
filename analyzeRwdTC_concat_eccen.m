@@ -7,7 +7,7 @@ curFolder = pwd;
 dataFolder = '/Volumes/MH02086153MACDT-Drobo/allMinSubjects_concatenated/';
 subFolders = {'000520180116', '0008i20180213', '0016i20180207', '002220171212', '003220180105', '0034i20180209', '003520180328', '004020180328','004120180320', '0042i20180412', '0045i20180309', '0046i20180409', '0049i20180404', '005220180621'};
 
-nperms=10000;
+nperms=1000;
 onlyCorrectString = '';
 if onlyCorrect==1
     onlyCorrectString = '_correct';
@@ -33,7 +33,7 @@ load([dataFolder 'rwdTC_concat' onlyCorrectString zScoreString globalMeanString 
     'expName','stairThresh','eccen','ang','areas','trialLength',...
     'subMeanCorrectness', 'subMeanRT','subMedianRT','subMeanThresh',...
     'subMeanRunTC','subStdRunTC','subStd','subRoiRuns',...
-    'globalMean','regressBetasGlobal','runRwd');
+    'globalMean','regressBetasGlobal','runRwd','L');
 
 % trialLength=10;
 clear subMeanResponse trialStd meanTrialStd runStd meanRunStd subRwdStd trialFFTamp trialFFTphase meanTrialFFTamp meanTrialFFTphase 

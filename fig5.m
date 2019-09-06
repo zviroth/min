@@ -109,9 +109,9 @@ clear subBinTrialResponse subBinResponse binVoxels numBinVoxels meanSubVoxCorr m
 for iSub = 1:length(goodSubs)%length(subdirs)
     for iRoi= ROIs
         for rwd=1:2
-            temp = trialCorrectness{iSub,rwd}(:,2:end-1);
+            temp = trialCorrectness{goodSubs(iSub),rwd}(:,2:end-1);
             trialCorrectnessVec = temp(:);
-            temp = trialResponse{iSub,rwd}(:,2:end-1);
+            temp = trialResponse{goodSubs(iSub),rwd}(:,2:end-1);
             trialResponseVec = temp(:);
             if onlyCorrect ==1 %ONLY CORRECT
                     goodTrials = trialCorrectnessVec==1;
@@ -123,11 +123,11 @@ for iSub = 1:length(goodSubs)%length(subdirs)
             end
                 
             for ibin=1:nbins
-                binVoxels = eccen{iSub,iRoi}>binBorders(ibin) & eccen{iSub,iRoi}<=binBorders(ibin+1);
+                binVoxels = eccen{goodSubs(iSub),iRoi}>binBorders(ibin) & eccen{goodSubs(iSub),iRoi}<=binBorders(ibin+1);
                 numBinVoxels(iSub,iRoi,ibin) = sum(binVoxels);
 %                 binVoxels = binVoxels & areas{iSub,iRoi}==1;%ONLY V1
-                binVoxels = binVoxels & areas{iSub,iRoi}>0;%ONLY V1,V2,V3
-                binMeanTseries = nanmean(roiTC{iSub,iRoi,rwd}.tSeries(binVoxels,:));%mean timecourse across voxels
+                binVoxels = binVoxels & areas{goodSubs(iSub),iRoi}>0;%ONLY V1,V2,V3
+                binMeanTseries = nanmean(roiTC{goodSubs(iSub),iRoi,rwd}.tSeries(binVoxels,:));%mean timecourse across voxels
                 subBinTrialResponse{iSub,iRoi,ibin,rwd} = reshape(binMeanTseries, trialLength, length(binMeanTseries)/trialLength);
                 
                 
@@ -160,7 +160,7 @@ for iSub = 1:length(goodSubs)%length(subdirs)
                 temp = repmat(goodTrials', trialLength,1);
                 goodTimepoints = temp(:);
 %                 goodTC = roiTC{iSub,iRoi,rwd}.tSeries(binVoxels,goodTimepoints);
-                goodTC = roiTC{iSub,iRoi,rwd}.tSeries(:,goodTimepoints);
+                goodTC = roiTC{goodSubs(iSub),iRoi,rwd}.tSeries(:,goodTimepoints);
                 %   maybe remove mean trial per voxel?
                 temp=triu(corr(goodTC'));
                 meanSubVoxCorr(iSub,iRoi,rwd) = nanmean(temp(:));
@@ -231,6 +231,7 @@ clf
 rows=2;
 cols = 9;
 subplots = {1:3, 4:6, 7 , 9, cols+1:cols+3, cols+4:cols+6, cols+7 , cols+9};
+
 for r= 1:length(ROIs)
     %amplitude
     subplot(rows,cols,subplots{1});
@@ -247,6 +248,9 @@ for r= 1:length(ROIs)
     hline(0);
     
     %latency
+%     binMeanPh = mod(binMeanPh,2*pi);
+    binMeanPh = binMeanPh - pi/2;
+    binMeanPh = mod((binMeanPh + pi),2*pi)-pi;
     subplot(rows,cols,cols+subplots{1});
     iRoi=ROIs(r);
     for rwd=1:2
@@ -262,54 +266,111 @@ for r= 1:length(ROIs)
     
 end
 
-for isubplot=[1:2 5:6]%length(subplots)
+%% bar plot of subjects' amplitudes
+lineLength = 0.2;
+lineWidth = 2;
+markerSize = 10;
+subplot(rows,cols,subplots{3})
+for r = 1:length(ROIs)
+    iROI = ROIs(r);
+    clear smallSubAmp subPh
+    for i=1:length(goodSubs)
+        iSub = goodSubs(i);
+        for rwd=1:2
+            smallSubAmp(i,rwd) = std(squeeze(subResponse(iSub,iRoi,rwd,:)));
+            f=angle(fft(squeeze(subResponse(iSub,iRoi,rwd,:))));
+            subPh(i,rwd) = f(2);
+        end
+    end
+    smallSubDiff = smallSubAmp(:,1) - smallSubAmp(:,2);
+    minSubDiff = min(smallSubDiff);
+    maxSubDiff= max(smallSubDiff);
+    subjects = size(smallSubAmp,1);
+    rewards = size(smallSubAmp,2);
+    [rwdNum, subNum] = meshgrid(1:rewards, 1:subjects);
+    scatterCmap=cool;
+%     scatterCmap = scatterCmap(end:-1:1,:);%invert color map
+    colormap(scatterCmap);
+
+    l = size(scatterCmap,1);
+    for i=1:length(goodSubs)
+        subColor(i,:) = scatterCmap(1+floor((smallSubDiff(i) - minSubDiff)*(l-1)/(maxSubDiff-minSubDiff)),:);
+        plot(1:rewards,smallSubAmp(i,:),'Color',subColor(i,:),'linewidth',linewidth);
+        hold on
+    end
+    scatter(rwdNum(:),smallSubAmp(:),markerSize, [subColor; subColor] ,'filled');   
+    % MEAN
+    for i=1:rewards
+        scatter(i,mean(smallSubAmp(:,i)),markerSize*4,[0 0 0],'filled');
+        plot(1:rewards,mean(smallSubAmp),'Color',[0 0 0],'linewidth', 2*linewidth);
+    end
+end
+
+%% bar plot of subjects' latency
+subplot(rows,cols,subplots{3+4})
+for r = 1:length(ROIs)
+    iROI = ROIs(r);
+    subPhDiff = circ_dist(subPh(:,:),subPh(:,1));
+    colormap(scatterCmap);
+    for i=1:length(goodSubs)
+        plot(1:rewards,subPhDiff(i,:),'Color',subColor(i,:),'linewidth',linewidth);
+        hold on
+    end
+    scatter(rwdNum(:),subPhDiff(:),markerSize, [subColor; subColor] ,'filled');   
+    % MEAN
+    for i=1:rewards
+        scatter(i,mean(subPhDiff(:,i)),markerSize*4,[0 0 0],'filled');
+        plot(1:rewards,mean(subPhDiff),'Color',[0 0 0],'linewidth', 2*linewidth);
+    end
+%     ylim([-pi pi]);
+end
+
+%% Formatting
+for isubplot=[1:3 5:7]%1:length(subplots)
     subplot(rows,cols,subplots{isubplot});
     switch isubplot
         case 1
             ylabel('response amplitude (std)');
         case 2
             ylabel('\Delta response amplitude (std)');
+        case 3
+             ylabel('response amplitude (std)');
         case 5
             ylabel('response timing (rad)');
         case 6
             ylabel('\Delta response timing (rad)');
+        case 7
+            ylabel('relative response latency (rad)');
     end
              
-%     if mod(isubplot,2)==0
-%         ylabel('\Delta response amplitude (std)');
-%     else
-%         ylabel('response amplitude (std)');
-%     end
+if isubplot==3
+    xlabel('reward');
+    drawPublishAxis('xLabelOffset', -6/64,'yLabelOffset', -62/64, 'xAxisMargin', 4/64, 'yAxisMargin', 0/64,'xAxisMinMaxSetByTicks',1,...
+        'xTick',[1 2], 'xTickLabel', {'high','low'},...
+        'xAxisMin', 1 ,'xAxisMax', 2,'yAxisOffset',-0.5,'labelFontSize',7,...
+        'yAxisMajorTickLen',-4/32);
+elseif isubplot==7
+    xlabel('reward');
+    drawPublishAxis('xLabelOffset', -6/64,'yLabelOffset', -52/64, 'xAxisMargin', 4/64, 'yAxisMargin', 0/64,'xAxisMinMaxSetByTicks',1,...
+        'xTick',[1 2], 'xTickLabel', {'high','low'},...
+        'yTick',[-pi 0 pi], 'yTickLabel', {'-\pi','0','\pi'},...
+        'xAxisMin', 1 ,'xAxisMax', 2,'yAxisOffset',-0.5,'labelFontSize',7,...
+        'yAxisMajorTickLen',-4/32);
+    else
     
     xlabel('eccentricity (deg)');
-        drawPublishAxis('xLabelOffset', -8/64,'yLabelOffset', -12/64, 'xAxisMargin', 4/64, 'yAxisMargin', 0/64,'xAxisMinMaxSetByTicks',1,...
-              'labelFontSize',7);
-          axis square
+    drawPublishAxis('xLabelOffset', -8/64,'yLabelOffset', -12/64, 'xAxisMargin', 4/64, 'yAxisMargin', 0/64,'xAxisMinMaxSetByTicks',1,...
+        'labelFontSize',7);
+    axis square
 end
-
-set(gcf,'position',[10 10 25 	14]);
+end
+% set(gcf,'position',[10 10 25 	12]);
+set(gcf,'position',[10 10 28 	14]);
 % set(gcf,'position',[10 10 40 2*10]);
 print('-painters','-dpdf',['~/Documents/MATLAB/min/figures/fig5_' ConcatProjStr '.pdf']);
 
-% %%
-% i=i+1;
-% figure(i)
-% clf
-% rows=length(ROIs);
-% cols=nbins;
-% for iRoi= ROIs
-%     for ibin=1:nbins
-%         subplot(rows,cols,iRoi + (ibin-1)*length(ROIs))
-%         for rwd=1:2
-%             dsErrorsurface(1:trialLength, squeeze(binStdMean(iRoi,ibin,rwd,:)), squeeze(binStdStd(iRoi,ibin,rwd,:))./sqrt(size(subBinStd,1)), dsSurfaceContrast*plotColors{rwd},dsSurfaceAlpha);
-%             hold on
-%             plot(1:trialLength, squeeze(binStdMean(iRoi,ibin,rwd,:)),'.-','Color', plotColors{rwd},'linewidth',linewidth,'markersize',markersize);
-%         end
-%     end
-% end
-% 
-% set(gcf,'position',[10 10 35 	6]);
-% % set(gcf,'position',[10 10 40 2*10]);
+
+
 
 %%
 rows=3;
@@ -336,8 +397,6 @@ plot(binCenters, binVarDiffMean(iRoi,:),'k.-','linewidth',linewidth,'markersize'
 ylabel('\Delta mean variability (std)');
 hline(0);
 %% STD amplitude variability
-binStdVarMean
-binStdVarStd
 subplot(rows,cols,cols+subplots{1});
 for rwd=1:2
     dsErrorsurface(binCenters, squeeze(binStdVarMean(iRoi,:,rwd)), squeeze(binStdVarStd(iRoi,:,rwd))./sqrt(size(subBinAmp,1)), dsSurfaceContrast*plotColors{rwd},dsSurfaceAlpha);
@@ -440,7 +499,7 @@ end
 scatter(rwdNum(:),subMeanVar(:),markerSize, [subColor; subColor] ,'filled');
 % MEAN
 for i=1:rewards
-    scatter(i,mean(subMeanVar(:,i)),markerSize*4,[0 0 0],'filled','d');
+    scatter(i,mean(subMeanVar(:,i)),markerSize*4,[0 0 0],'filled');
     plot(1:rewards,mean(subMeanVar),'Color',[0 0 0],'linewidth', 2*linewidth);
 end
 ylabel('mean variability (std)');
@@ -454,7 +513,7 @@ end
 scatter(rwdNum(:),subStdVar(:),markerSize, [subColor; subColor] ,'filled');
 % MEAN
 for i=1:rewards
-    scatter(i,mean(subStdVar(:,i)),markerSize*4,[0 0 0],'filled','d');
+    scatter(i,mean(subStdVar(:,i)),markerSize*4,[0 0 0],'filled');
     plot(1:rewards,mean(subStdVar),'Color',[0 0 0],'linewidth', 2*linewidth);
 end
 ylabel('amplitude variability (std)');
@@ -482,7 +541,7 @@ end
 scatter(rwdNum(:),subBinFftPhVar(:),markerSize, [subColor; subColor] ,'filled');
 % MEAN
 for i=1:rewards
-    scatter(i,mean(subBinFftPhVar(:,i)),markerSize*4,[0 0 0],'filled','d');
+    scatter(i,mean(subBinFftPhVar(:,i)),markerSize*4,[0 0 0],'filled');
     plot(1:rewards,mean(subBinFftPhVar),'Color',[0 0 0],'linewidth', 2*linewidth);
 end
 ylabel('temporal variability (std)');
@@ -529,4 +588,5 @@ print('-painters','-dpdf',['~/Documents/MATLAB/min/figures/fig5_variability_' Co
 lbls = {'std amp','timepoint var','FFT amp var','FFT ph var','std amp mean','std amp var'};
 
 pmat
+
 

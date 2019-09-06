@@ -107,16 +107,17 @@ for isnr=1:length(snr)
                 runTC(ceil(noisyTiming)) = ones;
 %                 runTC(ceil(noisyTiming)) = taskAmp*(1+atan(ampJitter(iampJitter)*randn(numTrials,1))./(pi/2));
                 runTC(ceil(noisyTiming)) = taskAmp*(1+atan(ampJitter(iampJitter)*randn(numTrials,1)));
+
                 temp = conv(runTC,hrfModel);
+
                 runTC = temp(1:upT);%crop end
-                
-%                 rwdSignal(isnr,ijitter,iampJitter,:,r) = taskAmp*(1+ampJitter(iampJitter)*randn(1))*runTC(1:upsampleFactor:end);%downsample
-                rwdSignal(isnr,ijitter,iampJitter,:,r) = runTC(1:upsampleFactor:end);%downsample
+                rwdSignal(isnr,ijitter,iampJitter,:,r) = runTC(1:upsampleFactor:end);%downsample                
        
             end
             n = (taskAmp/snr(isnr))*randn(size(rwdSignal(isnr,ijitter,iampJitter,:,:)));
             
-            rwdNoise(isnr,ijitter,iampJitter,:,:) = abs(ifft(repmat(oneOverF,1,1,1,1,runsPerRwd).*fft(n)));
+            %HOW DO WE DO THIS WITHOUT ABS???
+            rwdNoise(isnr,ijitter,iampJitter,:,:) = ifft(repmat(oneOverF,1,1,1,1,runsPerRwd).*fft(n));
         end
     end
 end

@@ -1,5 +1,8 @@
+close all
+clear all
+tic
 onlyCorrect=0;%1=correct,2=incorrect,0=all
-toZscore=0;%0 or 1
+toZscore=1;%0 or 1
 regressGlobalMean = 0;
 ConcatProj = 1;
 curFolder = pwd;
@@ -46,40 +49,63 @@ for iSub = 1:numSubs
     v = viewSet(v, 'curGroup', concatGroupNum);
     nScans = viewGet(v, 'nscans');
     clear rois
-    for iRoi = 1:length(roiNames)
-        for iScan = 1:2%nScans%2 concatenations, 1 for each reward type
-            s = viewGet(v, 'stimfile', iScan);
-            if ~isfield(s{1}, 'stimulus')
-                s=s{1};
-            end
-            rwdType = s{1}.stimulus.rewardVal;
-            if strcmp(rwdType, 'H')
-                rwd = 1;
-            elseif strcmp(rwdType, 'L')
-                rwd = 2;
-            else
-                disp('wtf');
-                keyboard
-            end
-            concatInfo{iSub,rwd} = viewGet(v, 'concatInfo', iScan);
+    
+    for iScan = 1:2%nScans%2 concatenations, 1 for each reward type
+        s = viewGet(v, 'stimfile', iScan);
+        if ~isfield(s{1}, 'stimulus')
+            s=s{1};
+        end
+        rwdType = s{1}.stimulus.rewardVal;
+        if strcmp(rwdType, 'H')
+            rwd = 1;
+        elseif strcmp(rwdType, 'L')
+            rwd = 2;
+        else
+            disp('wtf');
+            keyboard
+        end
+        concatInfo{iSub,rwd} = viewGet(v, 'concatInfo', iScan);
+        
+        %get global mean
+        ts = loadTSeries(v,iScan);
+        allTseries = reshape(ts,[],size(ts,4));%voxels,TRs
+        if toZscore
+            allTseries = zscoreConcat(allTseries, concatInfo{iSub,rwd});
+        end
+        globalMean{iSub,rwd} = nanmean(allTseries)';%(vox,T)
+        
+        %compute Fourier amp and angle of task-related response, for ALL voxels
+
+        fullFft = fft(allTseries,[],2);
+        fullFft = fullFft(:,1:(1+size(fullFft,2)/2));
+        fundFreq = 1+size(allTseries,2)/trialLength;
+        f = fullFft(:,fundFreq);
+        allVoxTaskPhase{iSub,rwd} = angle(f);
+        allVoxTaskAmp{iSub,rwd} = abs(f);
+        absFullFft = sum(abs(fullFft),2);
+        allVoxTaskCo{iSub,rwd} = abs(f)./absFullFft;
+        
+        temp = reshape(allTseries, size(allTseries,1), trialLength, size(allTseries,2)/trialLength);%(vox,trialLength,numTrials)
+        allVoxTrialResponse{iSub,rwd} = mean(temp,3);%mean over trials.(vox,trialLength)
+        temp = fft(allVoxTrialResponse{iSub,rwd},[],2);
+        f = temp(:,2);
+        allVoxTaskPhase{iSub,rwd} = angle(f);
+        allVoxTaskAmp{iSub,rwd} = abs(f);
+        
+        for iRoi = 1:length(roiNames)
             
-            
-            %get global mean
-            ts = loadTSeries(v,iScan);
-            allTseries = reshape(ts,[],size(ts,4));%voxels,TRs
 
             roiTC{iSub,iRoi,rwd} = loadROITSeries(v, roiNames{iRoi}, iScan, [], 'keepNAN',true);
             roiTC{iSub,iRoi,rwd}.tSeries = 100*(roiTC{iSub,iRoi,rwd}.tSeries-1);%percent signal change
             if toZscore
-                roiTC{iSub,iRoi,rwd}.tSeries = zscoreConcat(roiTC{iSub,iRoi,rwd}.tSeries, concatInfo{iSub,rwd});
-                allTseries = zscoreConcat(allTseries, concatInfo{iSub,rwd});
-            end
-            globalMean{iSub,rwd} = nanmean(allTseries)';
-            if regressGlobalMean
-                regressBetasGlobal{iSub,rwd,iRoi} = globalMean{iSub,rwd}\roiTC{iSub,iRoi,rwd}.tSeries';             
-                roiTC{iSub,iRoi,rwd}.tSeries = roiTC{iSub,iRoi,rwd}.tSeries - regressBetasGlobal{iSub,rwd,iRoi}'*globalMean{iSub,rwd}';
+               roiTC{iSub,iRoi,rwd}.tSeries = zscoreConcat(roiTC{iSub,iRoi,rwd}.tSeries, concatInfo{iSub,rwd});
             end
 
+            if regressGlobalMean
+                regressBetasGlobal{iSub,rwd,iRoi} = globalMean{iSub,rwd}\roiTC{iSub,iRoi,rwd}.tSeries';
+                roiTC{iSub,iRoi,rwd}.tSeries = roiTC{iSub,iRoi,rwd}.tSeries - regressBetasGlobal{iSub,rwd,iRoi}'*globalMean{iSub,rwd}';
+            end
+            
             for r=1:length(s)
                 %if subject stopped responding at a certain point we
                 %need to fill in the last incorrect trials:
@@ -107,7 +133,7 @@ for iSub = 1:numSubs
             temp = trialResponse{iSub,rwd}(:,2:end-1);
             trialResponseVec = temp(:);
             
-
+            
             %average per run - ALL TRIALS AVERAGED, NOT ONLY CORRECT TRIALS
             reshapedTrials = reshape(subTrialResponse{iSub,iRoi,rwd},10*15,[]);%divide into runs
             subRoiRuns{iSub,iRoi,rwd} = reshapedTrials;
@@ -126,7 +152,7 @@ for iSub = 1:numSubs
                 goodTrials = trialResponseVec>0;
             end
             subTrialResponse{iSub,iRoi,rwd} = subTrialResponse{iSub,iRoi,rwd}(:,goodTrials);
- 
+            
             
             reshapedTrials = reshape(subTrialResponse{iSub,iRoi,rwd},trialLength,[]);
             if iSub==1
@@ -191,10 +217,29 @@ save([dataFolder 'rwdTC_concat' onlyCorrectString zScoreString globalMeanString 
     'subMeanCorrectness', 'subMeanRT','subMedianRT','subMeanThresh',...
     'subMeanRunTC','subStdRunTC','subStd','subRoiRuns',...
     'globalMean','regressBetasGlobal','runRwd',...
-    'subRoiRuns','runMeanFFT');
+    'subRoiRuns','runMeanFFT',...
+    'allVoxTrialResponse','allVoxTaskPhase','allVoxTaskAmp','allVoxTaskCo');
 
 runRwd
+toc
 
+%% plot polar histogram of task related phase
+figure
+rows=2;
+cols=numSubs;
+nbins=20;
+nVox=1000;
+thresh=0.015;
+for iSub=1:numSubs
+%     bestVox = sort(allVoxTaskCo{iSub,1}+allVoxTaskCo{iSub,2},'descend');
+    for rwd=1:2
+        subplot(rows,cols,iSub+(rwd-1)*cols)
+%         polarhistogram(allVoxTaskPhase{iSub,rwd}(bestVox(1:nVox)),nbins);
+polarhistogram(allVoxTaskPhase{iSub,rwd}(allVoxTaskCo{iSub,rwd}>thresh),nbins);
+        set(gca,'RTickLabel',[]);
+        set(gca,'ThetaTickLabel',[]);
+    end
+end
 %%
 function newConcat = zscoreConcat(concatData, concatInfo)%voxels,TRs
 newConcat = [];
