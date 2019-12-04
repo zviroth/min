@@ -2,7 +2,7 @@ close all; clear all;
 onlyCorrect=0;%1=correct,2=incorrect,0=all (with response)
 toZscore=1;%0 or 1
 regressGlobalMean=0;
-ConcatProj = 1;
+ConcatProj = 0;
 curFolder = pwd;
 dataFolder = '/Volumes/MH02086153MACDT-Drobo/allMinSubjects_concatenated/';
 subFolders = {'000520180116', '0008i20180213', '0016i20180207', '002220171212', '003220180105', '0034i20180209', '003520180328', '004020180328','004120180320', '0042i20180412', '0045i20180309', '0046i20180409', '0049i20180404', '005220180621'};
@@ -57,7 +57,11 @@ i=0;
 %we can either get an amplitude for each trial or for each run
 ntrials=15;
 
-
+%% mean + STD of thresholds
+subThresh = mean(subMeanThresh,2);%mean over rwd, which is already averaged over staircases and runs
+mean(subThresh)
+std(subThresh)
+keyboard
 
 %% PERMUTATIONS
 % first combine all trials across all subjects
@@ -93,6 +97,7 @@ for iSub = 1:length(goodSubs)%length(subdirs)
            temp = fft(reshapedTrials);
            roiFftAmp = abs(temp(2,:));
            roiFftPh = angle(temp(2,:));
+           trialRoiFftPhVec{iSub,iRoi,rwd} = roiFftPh;
            roiFftOther = sum(abs(temp([1 3:end],:)));
 %            roiBinFftBaseline = abs(temp(1,:));
            roiFftBaseline = mean(reshapedTrials);
@@ -124,6 +129,7 @@ for rwd=1:2
 %         plot(squeeze(meanResponse(rwd,iRoi,:)), plotStyles{iRoi}, 'Color', plotColors{rwd}, 'linewidth', 1);
 %         hold on
         meanTimepointStd(iRoi, rwd,:) = mean(subTimepointStd(:,iRoi,rwd,:));%mean trial-by-trial variability
+        
         stdTimepointStd(iRoi, rwd,:) = std(subTimepointStd(:,iRoi,rwd,:));%std of trial-by-trial variability
     end
 end
@@ -219,9 +225,9 @@ for iSub = 1:length(goodSubs)%length(subdirs)
         pVal_sub(iSub, iRoi) = sum(permSubDiff(iSub,iRoi,:) >= realSubDiff(iSub,iRoi))/nperms;
         
         %difference in latency
-        realSubFftAmpDiff(iSub,iRoi) = realSubMeanFftAmp(iSub,iRoi,2) - realSubMeanFftAmp(iSub,iRoi,1);
+        realSubFftAmpDiff(iSub,iRoi) = realSubMeanFftAmp(iSub,iRoi,1) - realSubMeanFftAmp(iSub,iRoi,2);
         realSubFftPhDiff(iSub,iRoi) = circ_dist(realSubMeanFftPh(iSub,iRoi,2), realSubMeanFftPh(iSub,iRoi,1));
-        permSubFftAmpDiff(iSub,iRoi,:) = permSubMeanFftAmp(iSub,iRoi,2,:) - permSubMeanFftAmp(iSub,iRoi,1,:);
+        permSubFftAmpDiff(iSub,iRoi,:) = permSubMeanFftAmp(iSub,iRoi,1,:) - permSubMeanFftAmp(iSub,iRoi,2,:);
         permSubFftPhDiff(iSub,iRoi,:) = circ_dist(permSubMeanFftPh(iSub,iRoi,2,:),permSubMeanFftPh(iSub,iRoi,1,:));
         pVal_fftPh_sub(iSub, iRoi) = sum(permSubFftPhDiff(iSub,iRoi,:) >= realSubFftPhDiff(iSub,iRoi))/nperms;
         
@@ -258,6 +264,30 @@ for iSub = 1:length(goodSubs)%length(subdirs)
     end
     
 end
+
+
+%correlate RT with BOLD timing
+for iSub=1:length(goodSubs)
+    for iRoi= ROIs
+        for rwd=1:2
+           [rtBoldCorr(iSub,iRoi,rwd) rtBoldCorrPval(iSub,iRoi,rwd)]=  corr(trialRoiFftPhVec{iSub,iRoi,rwd}', trialRTvec{iSub,rwd});
+        end
+    end
+end
+
+
+%single subject p-values for timepoint variability
+realSubTimepointVar = squeeze(mean(subTimepointStd,4));
+realSubTimepointVarDiff = squeeze(realSubTimepointVar(:,:,2) - realSubTimepointVar(:,:,1));
+permSubTimepointVar = squeeze(mean(permSubStd,5));
+permSubTimepointVarDiff = squeeze(permSubTimepointVar(:,:,2,:) - permSubTimepointVar(:,:,1,:));
+for iSub=1:length(goodSubs)
+    for iRoi= ROIs
+        pVal_sub_timepoint(iSub,iRoi) =  sum(permSubTimepointVarDiff(iSub,iRoi,:) >= realSubTimepointVarDiff(iSub,iRoi))/nperms;
+    end
+end
+
+
 hypoth = pVal_sub<0.05;
 hypoth_ph = pVal_fftPh_sub<0.05;
 pVal_sub(:,ROIs)
@@ -297,6 +327,10 @@ for iRoi= ROIs
     meanPermPhDiff(iRoi,:) = mean(permSubFftPhDiff(:,iRoi,:));%average over subjects
     meanRealPhDiff(iRoi) = mean(realSubFftPhDiff(:,iRoi));%average over subjects
     pVal_ph_rfx(iRoi) = sum(meanPermPhDiff(iRoi,:) >= meanRealPhDiff(iRoi))/nperms;
+    
+    meanPermAmpDiff(iRoi,:) = mean(permSubFftAmpDiff(:,iRoi,:));%average over subjects
+    meanRealAmpDiff(iRoi) = mean(realSubFftAmpDiff(:,iRoi));%average over subjects
+    pVal_amp_rfx(iRoi) = sum(meanPermAmpDiff(iRoi,:) >= meanRealAmpDiff(iRoi))/nperms;
 %     %FFT RFX
 %     meanPermFftDiff(iRoi,:) = mean(permSubFftDiff(:,iRoi,:));%average over subjects
 %     meanRealFftDiff(iRoi) = mean(realSubFftDiff(:,iRoi));%average over subjects
@@ -337,6 +371,7 @@ for iRoi= ROIs
 end
 pVal_rfx
 pVal_ph_rfx
+pVal_amp_rfx
 % pVal_fft_rfx
 pVal_var
 % pVal_var_timecourse*trialLength
@@ -345,8 +380,8 @@ pVal_ampVar
 pVal_phVar
 pVal_otherVar
 pVal_baselineVar
-pVal_ampMean
-pVal_stdMean %mean trial amplitude measured by std
+pVal_ampMean %mean trial amplitude measured by fft (per trial), low minus high
+pVal_stdMean %mean trial amplitude measured by std (per trial), low minus high
 pVal_stdMedian
 pVal_phMean
 

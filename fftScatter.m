@@ -182,9 +182,9 @@ for r = 1:length(chosenROIs)
     drawConfidenceEllipse([mean(subReal(:,j)) mean(subImag(:,j))],cov([subReal(:,j) subImag(:,j)]),'alpha=0.3','nSTD',nSTD);
     hline(0)
     vline(0)
-    xlabel([ 'real Fourier component (' fmriUnits ')']);
+    xlabel({'real Fourier component';['(' fmriUnits ')']});
 %     if r==1
-        ylabel([ 'imaginary Fourier component (' fmriUnits ')']); 
+        ylabel({ 'imaginary Fourier component';['(' fmriUnits ')']}); 
 %     end
     title(roiNames{iRoi});
     drawPublishAxis('xLabelOffset', -7/64,'yLabelOffset', -10/64, 'xAxisMargin', 2/64, 'yAxisMargin', 2/64,'xAxisMinMaxSetByTicks',0,...

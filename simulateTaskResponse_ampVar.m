@@ -459,6 +459,18 @@ print('-painters','-dpdf',['~/Documents/MATLAB/min/figures/fig8_colorbar.pdf']);
 % plot(squeeze(rwdTC(1,1,1,:,1)))
 % subplot(rows,cols,2)
 % plot(squeeze(rwdTC(1,end,1,:,1)))
+%%
+figure
+%SNR
+subplot(rows,cols,1)
+plot(squeeze(ampVar(:,1,1)));
+%temp
+subplot(rows,cols,2)
+plot(squeeze(ampVar(1,:,1)));
+%amp
+subplot(rows,cols,3)
+plot(squeeze(ampVar(1,1,:)));
+
 
 %%
 function filteredTC = filterTC(tc)

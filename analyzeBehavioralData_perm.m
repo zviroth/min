@@ -12,6 +12,12 @@ load([saveFolder 'behavioralData' onlyCorrectString '.mat'], 'subFolders', 'subP
     'meanPupil','stdRwd','diffPupil','expName',...
     'subMeanCorrectness', 'subMeanRT','subMedianRT','subMeanThresh','subRTvar','rwdLevel','numTrials',...
     'trialCorrectness' ,'trialResponse','trialRT','propCorrect','stairThresh');
+%% mean + STD of thresholds
+subThresh = mean(subMeanThresh,2);%mean over rwd, which is already averaged over staircases and runs
+mean(subThresh)
+std(subThresh)
+keyboard
+%%
 
 plotColors = { [0 0 1],[1 0 0],[0 1 0], [0.5 1 0.2]};
 plotStyles = {'-','--',':','-.','-','--',':','-.'};
@@ -54,6 +60,14 @@ for iSub = 1:length(subFolders)%length(subdirs)
                 
                 
                 keyboard
+                %FFT
+                f = fft(permTrials,[],2);
+                ph = angle(f(:,2));
+                permSubMeanPh(iSub,rwd,p) = circ_mean(ph);
+                permSubPhVar(iSub,rwd,p) = circ_std(ph);
+                
+                f=fft(squeeze(permSubMeanTC(iSub,rwd,p,:)));
+                ph = angle(f(2));
             end
     end
     for rwd=1:2

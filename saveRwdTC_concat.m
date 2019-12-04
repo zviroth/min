@@ -2,19 +2,22 @@ close all
 clear all
 tic
 onlyCorrect=0;%1=correct,2=incorrect,0=all
-toZscore=1;%0 or 1
+toZscore=0;%0 or 1
 regressGlobalMean = 0;
-ConcatProj = 1;
+ConcatProj = 0;
 curFolder = pwd;
 dataFolder = '/Volumes/MH02086153MACDT-Drobo/allMinSubjects_concatenated/';
 subFolders = {'000520180116', '0008i20180213', '0016i20180207', '002220171212', ...
-    '003220180105', '0034i20180209', '003520180328', '004020180328','004120180320', ...
+    '003220180105', '0034i20180209', '003520180328', '0039i20180220', '004020180328','004120180320', ...
     '0042i20180412', '0045i20180309', '0046i20180409', '0049i20180404', '005220180621'};
+% subFolders = {'000520180116', '0008i20180213', '0016i20180207', '002220171212', ...
+%     '003220180105', '0034i20180209', '003520180328', '004020180328','004120180320', ...
+%     '0042i20180412', '0045i20180309', '0046i20180409', '0049i20180404', '005220180621'};
 numSubs=length(subFolders);
 % roiNames = {'rV1_eccen8', 'lV1_eccen8','rV2_eccen8','lV2_eccen8','rV3_eccen8','lV3_eccen8','rh_17Networks_16','lh_17Networks_16'};
 % roiNames = {'leftBenson', 'rightBenson'};
 % roiNames = { 'leftBenson', 'rightBenson','lV1_eccen8','rV1_eccen8','lV2_eccen8','rV2_eccen8','lV3_eccen8','rV3_eccen8','lh_17Networks_16','rh_17Networks_16'};
-roiNames = { 'leftBenson', 'rightBenson','lh_17Networks_16','rh_17Networks_16'};
+roiNames = { 'leftBenson', 'rightBenson','lh_17Networks_16','rh_17Networks_16','leftCerebellarCortex','rightCerebellarCortex'};
 
 
 cd(dataFolder);
@@ -125,6 +128,9 @@ for iSub = 1:numSubs
             expName{iSub,rwd} = s{iScan}.task{1}.taskFilename;
             
             
+            
+            
+            
             roiMeanTseries{iSub,iRoi,rwd}(:) = nanmean(roiTC{iSub,iRoi,rwd}.tSeries);%mean across voxels
             %             foo = nanmean(rois{iRoi}{rwd}.tSeries(goodVox{iRoi}{selectionRun}==1,:))-1;
             subTrialResponse{iSub,iRoi,rwd} = reshape(roiMeanTseries{iSub,iRoi,rwd}(:), trialLength, length(roiMeanTseries{iSub,iRoi,rwd}(:))/trialLength);
@@ -152,8 +158,6 @@ for iSub = 1:numSubs
                 goodTrials = trialResponseVec>0;
             end
             subTrialResponse{iSub,iRoi,rwd} = subTrialResponse{iSub,iRoi,rwd}(:,goodTrials);
-            
-            
             reshapedTrials = reshape(subTrialResponse{iSub,iRoi,rwd},trialLength,[]);
             if iSub==1
                 allTrials{iRoi,rwd} = reshapedTrials;
@@ -166,6 +170,14 @@ for iSub = 1:numSubs
             subplot(rows,cols,iSub);
             plot(squeeze(subResponse(iSub,iRoi,rwd,:)), plotStyles{iRoi}, 'Color', plotColors{rwd}, 'linewidth', 1);
             hold on
+            
+            
+            %single voxel responses
+            voxTrials{iSub,iRoi,rwd} = reshape(roiTC{iSub,iRoi,rwd}.tSeries, size(roiTC{iSub,iRoi,rwd}.tSeries,1), trialLength, length(roiMeanTseries{iSub,iRoi,rwd}(:))/trialLength);
+            voxGoodTrials{iSub,iRoi,rwd} = voxTrials{iSub,iRoi,rwd}(:,:,goodTrials);
+            meanVoxTrial{iSub,iRoi,rwd} = squeeze(nanmean(voxGoodTrials{iSub,iRoi,rwd},3));
+            
+            
         end
     end
     
@@ -218,7 +230,8 @@ save([dataFolder 'rwdTC_concat' onlyCorrectString zScoreString globalMeanString 
     'subMeanRunTC','subStdRunTC','subStd','subRoiRuns',...
     'globalMean','regressBetasGlobal','runRwd',...
     'subRoiRuns','runMeanFFT',...
-    'allVoxTrialResponse','allVoxTaskPhase','allVoxTaskAmp','allVoxTaskCo');
+    'allVoxTrialResponse','allVoxTaskPhase','allVoxTaskAmp','allVoxTaskCo',...
+    'voxTrials','voxGoodTrials','meanVoxTrial');
 
 runRwd
 toc
