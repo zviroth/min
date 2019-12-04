@@ -35,6 +35,14 @@ for iLabel = 1:length(labels)
 % coords = volSize - coords;
 % coords(:,3) = volSize(3) - coords(:,3);
 
+
+%THIS????
+% h.qform44(1,4) = -(h.dim(2)-1)/2;
+
+
+
+
+
 coords(:,1) = volSize(1) - coords(:,1);
 coords(:,2) = volSize(2) - coords(:,2);
 % coords(:,2) = coords(:,2) - 40;
