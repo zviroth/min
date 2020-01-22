@@ -5,12 +5,12 @@ regressGlobalMean=0;
 ConcatProj = 1;
 curFolder = pwd;
 dataFolder = '/Volumes/MH02086153MACDT-Drobo/allMinSubjects_concatenated/';
-subFolders = {'000520180116', '0008i20180213', '0016i20180207', '002220171212', '003220180105', '0034i20180209', '003520180328', '004020180328','004120180320', '0042i20180412', '0045i20180309', '0046i20180409', '0049i20180404', '005220180621'};
+% subFolders = {'000520180116', '0008i20180213', '0016i20180207', '002220171212', '003220180105', '0034i20180209', '003520180328', '004020180328','004120180320', '0042i20180412', '0045i20180309', '0046i20180409', '0049i20180404', '005220180621'};
 
-randSeed = rng;
-load(fullfile(dataFolder,'randSeed.mat'),'randSeed');
+physioRandSeed = rng;
+% load(fullfile(dataFolder,'randSeed.mat'),'randSeed');
 
-nperms=10000;
+nperms=1000;
 onlyCorrectString = '';
 if onlyCorrect==1
     onlyCorrectString = '_correct';
@@ -31,7 +31,7 @@ ConcatProjStr = '';
 if ConcatProj
     ConcatProjStr = 'ConcatProj';
 end
-load([dataFolder 'rwdTC_concat' onlyCorrectString zScoreString globalMeanString ConcatProjStr '.mat'], 'concatInfo',  'subResponse', 'roiMeanTseries', ...
+load([dataFolder 'rwdTC_physio' onlyCorrectString zScoreString globalMeanString ConcatProjStr '.mat'], 'concatInfo',  'subResponse', 'roiMeanTseries', ...
     'roiTC', 'allTrials', ...
     'subFolders', 'roiNames','subTrialResponse','trialCorrectness', 'trialResponse', 'trialRT', 'propCorrect',...
     'expName','stairThresh','eccen','ang','areas','trialLength',...
@@ -41,16 +41,14 @@ load([dataFolder 'rwdTC_concat' onlyCorrectString zScoreString globalMeanString 
     'subRoiRuns','runMeanFFT',...
     'allVoxTrialResponse','allVoxTaskPhase','allVoxTaskAmp','allVoxTaskCo',...
     'voxTrials','voxGoodTrials','meanVoxTrial',...
-    'maxRT');
+    'maxRT',...
+    'ecgselect','ecgSampleRate','ecgTrial','ecgRunLength','ecgInterpMethod',...
+    'ecg','ecgPulseRate','interpPulseRate',...
+    'respselect','resp',...
+    'rwdRvTC','downsampledRV',...
+    'designMatPulse','designMatRespPulse','designMatResp','deconvLength',...
+    'allGoodTrials');
 
-% trialLength=10;
-clear subMeanResponse trialStd meanTrialStd runStd meanRunStd subRwdStd trialFFTamp trialFFTphase meanTrialFFTamp meanTrialFFTphase 
-clear stdTrialFFTphase runFFTamp runFFTphase meanRunFFTamp meanRunFFTphase stdRunFFTphase subFFTamp subFFTphase
-clear trialMinMax meanTrialMinMax runMinMax meanRunMinMax subRwdMinMax legendCellArray
-clear stdRunMax stdTrialMax
-clear groupLabels pVal
-clear yError yMin yMax permDiff meanPermDiff
-clear permSubDiff realSubDiff permSubResp realSubResp meanPermTC permSubMeanTC realSubMeanTC meanRealTC
 plotColors = {[1 0 0], [0 0 1], [0 1 0], [0.5 1 0.2]};
 plotStyles = {'-','--',':','-.','-','--',':','-.'};
 linewidth = 1;
@@ -58,11 +56,8 @@ markersize=10;
 % ROIs = 1:length(roiNames)-1;
 ROIs = 1:length(roiNames);
 
-goodSubs = [1:3 5:length(subFolders)]; %excluding subject 22
-% goodSubs = [1 3 5:10 13]; %excluding 4 subjects with highest amplitude difference
+goodSubs = [1:length(subFolders)]; 
 
-% ROIs = [1:4];
-% ROIs = [1 2];
 rwdString = {'H','L'};
 %% ANALYZE GLOBAL MEAN SIGNAL
 for iSub = 1:length(goodSubs)
@@ -77,10 +72,6 @@ for rwd=1:2
     plot(squeeze(mean(meanGlobalTrial(:,rwd,:))),'color',plotColors{rwd});
     hold on
 end
-
-
-
-
 
 i=0;
 %% make response templates using all runs and both reward levels, and measure response amplitude in each run and each reward level separately
@@ -103,18 +94,32 @@ for iSub = 1:length(goodSubs)%length(subdirs)
      for iRoi=1:length(roiNames)
         for rwd=1:2
 %             reshapedTrials = reshape(subTrialResponse{goodSubs(iSub),iRoi,rwd},10,[]);
-            reshapedTrials = subTrialResponse{goodSubs(iSub),iRoi,rwd};
+
+            %REGRESS OUT PHYSIO
+            %roiMeanTseries{iSub,iRoi,rwd} includes all trials
+           pulseKernel(iSub,iRoi,rwd,:) = designMatPulse{iSub,rwd}'\subTrialResponse{iSub,iRoi,rwd}(:);
+           pulseResidualTC{iSub,iRoi,rwd} = subTrialResponse{iSub,iRoi,rwd}(:)' - squeeze(pulseKernel(iSub,iRoi,rwd,:))'*designMatPulse{iSub,rwd};
+
+           respKernel(iSub,iRoi,rwd,:) = designMatResp{iSub,rwd}'\subTrialResponse{iSub,iRoi,rwd}(:);
+           respResidualTC{iSub,iRoi,rwd} = subTrialResponse{iSub,iRoi,rwd}(:)' - squeeze(respKernel(iSub,iRoi,rwd,:))'*designMatResp{iSub,rwd};
+
+           physioKernel(iSub,iRoi,rwd,:) = designMatRespPulse{iSub,rwd}'\subTrialResponse{iSub,iRoi,rwd}(:);
+           physioResidualTC{iSub,iRoi,rwd} = subTrialResponse{iSub,iRoi,rwd}(:)' - squeeze(physioKernel(iSub,iRoi,rwd,:))'*designMatRespPulse{iSub,rwd};
+
+           
+%            subTrialResponse{iSub,iRoi,rwd} = reshape(roiMeanTseries{iSub,iRoi,rwd}(:), trialLength, length(roiMeanTseries{iSub,iRoi,rwd}(:))/trialLength);
+
+            %KEEP ONLY THE RESIDUAL
+%            subTrialResponse{iSub,iRoi,rwd} = reshape(pulseResidualTC{iSub,iRoi,rwd}(:), trialLength, length(pulseResidualTC{iSub,iRoi,rwd}(:))/trialLength);
+%            subTrialResponse{iSub,iRoi,rwd} = reshape(respResidualTC{iSub,iRoi,rwd}(:), trialLength, length(respResidualTC{iSub,iRoi,rwd}(:))/trialLength);
+            subTrialResponse{iSub,iRoi,rwd} = reshape(physioResidualTC{iSub,iRoi,rwd}(:), trialLength, length(physioResidualTC{iSub,iRoi,rwd}(:))/trialLength);
+
+           
+           reshapedTrials = subTrialResponse{goodSubs(iSub),iRoi,rwd};
            temp = fft(reshapedTrials);
            roiFftAmp = abs(temp(2,:));
            roiFftBaseline = abs(temp(1,:));
-           
-           %remove FFT component 1
-%            reshapedTrials = reshapedTrials - repmat(mean(reshapedTrials),10,1);
 
-           %remove FFT component 2
-%            reshapedTrials = reshapedTrials./repmat(roiBinFftAmp,10,1);
-%            reshapedTrials = (reshapedTrials - repmat(mean(reshapedTrials),10,1))./repmat(roiFftAmp,10,1) + repmat(mean(reshapedTrials),10,1);
-           
            subTrialResponse{goodSubs(iSub),iRoi,rwd} = reshapedTrials;
     
         %trial-by-trial variability per subject
@@ -431,53 +436,7 @@ realRTdiff = realMeanRT(2) - realMeanRT(1);
 pVal_RT = sum(permRTdiff >= realRTdiff)/nperms;
 
 
-save(fullfile(dataFolder,'randSeed.mat'),'randSeed');
-
-%%
-histbins=1000;
-rows=length(roiNames);
-cols = length(goodSubs);
-% i=i+1;
-% figure(i)
-% clf
-% for iSub = 1:length(goodSubs)
-%     for iRoi= ROIs
-%         subplot(rows,cols,iSub + (iRoi-1)*cols)
-%         histogram(squeeze(permSubDiff(iSub,iRoi,:)),histbins); hold all
-%         vline(prctile(permSubDiff(iSub,iRoi,:),95),'k');
-%         vline(realSubDiff(iSub,iRoi),'r');
-%     end
-% end
-        
-        
-% %%
-% i=i+1;
-% figure(i)
-% clf
-% rows=length(roiNames);
-% cols = 3;
-% for iRoi= ROIs
-%     %baseline
-%     subplot(rows,cols,1+(iRoi-1)*cols)
-%         histogram(squeeze(meanPermBaselineStdDiff(iRoi,:)),histbins); hold all
-%         vline(prctile(meanPermBaselineStdDiff(iRoi,:),95),'k');
-%         vline(meanRealBaselineStdDiff(iRoi),'r');
-%         title(['baseline: ' roiNames{iRoi}]);
-%     %amplitude
-%         subplot(rows,cols,2+(iRoi-1)*cols)
-%         histogram(squeeze(meanPermAmpStdDiff(iRoi,:)),histbins); hold all
-%         vline(prctile(meanPermAmpStdDiff(iRoi,:),95),'k');
-%         vline(meanRealAmpStdDiff(iRoi),'r');
-%         title(['amplitude: ' roiNames{iRoi}]);
-%     %other FFT
-%         subplot(rows,cols,3+(iRoi-1)*cols)
-%         histogram(squeeze(meanPermOtherStdDiff(iRoi,:)),histbins); hold all
-%         vline(prctile(meanPermOtherStdDiff(iRoi,:),95),'k');
-%         vline(meanRealOtherStdDiff(iRoi),'r');
-%         title(['other FFT: ' roiNames{iRoi}]);
-% end
-
-
+save(fullfile(dataFolder,'physioRandSeed.mat'),'physioRandSeed');
 
 
 %%
@@ -543,10 +502,7 @@ dsSurfaceAlpha = 0.3;
         frequencies = frequencies(1:floor(nframes/2));
         runFFTstd = runFFTstd / (nframes/2);
         runFFTstd = runFFTstd(1:floor(nframes/2));
-        
-%         plot(frequencies, runFFT,'.-','Color',plotColors{rwd}, 'linewidth', linewidth,'markersize',markersize);
-%         
-%         hold on
+
         
         dsErrorsurface(frequencies, runFFT, runFFTstd./sqrt(size(runMeanFFT,1)), dsSurfaceContrast*plotColors{rwd},dsSurfaceAlpha);
         hold on
@@ -578,68 +534,7 @@ subTimepointStdDiff = squeeze(subTimepointStd(:,:,1,:) - subTimepointStd(:,:,2,:
  plot(squeeze(groupMeanVar(:,:,2,:)-groupMeanVar(:,:,1,:)),'k','linewidth',2);
   title('mean timepoint variability');
   
-%  % mean response derivative
-%  i=i+1; figure; clf
-%  cols=5;
-%  rows=ceil(length(goodSubs)/cols);
-%  for iSub=1:length(goodSubs)
-%      subplot(rows,cols,iSub)
-%      for rwd=1:2
-%          plot(squeeze(abs(diff(subResponse(goodSubs(iSub),iRoi,rwd,:)))),'color', plotColors{rwd},'linewidth',2);
-%          hold on
-%      end
-%  end
-%  subplot(rows,cols,rows*cols)
-%  for rwd=1:2
-%      plot(squeeze(abs(diff(groupMeanVar(:,:,rwd,:)))),'color', plotColors{rwd},'linewidth',3);
-%      hold on
-%  end
-%  title('derivative of mean response');
- 
- 
- for iRoi = 1:length(roiNames)
-     for iSub=1:length(goodSubs)
-         meanResp = squeeze(mean(subResponse(goodSubs(iSub),iRoi,:,:)));
-         respDeriv(iSub,iRoi,1:9) = abs(diff(meanResp));
-         respDeriv(iSub,iRoi,10) = abs(meanResp(end) - meanResp(1));
-         varDiffRespDerivCorr(iSub,iRoi) = corr(squeeze(subTimepointStdDiff(iSub,iRoi,:)),squeeze(respDeriv(iSub,iRoi,:)));
-     end
- end
- groupDeriv(1:9) = abs(diff(groupMeanVar(:,:,rwd,:)));
-  groupDeriv(10) = abs(groupMeanVar(:,:,rwd,end) - groupMeanVar(:,:,rwd,1));
- corr(squeeze(groupMeanVar(:,:,2,:)-groupMeanVar(:,:,1,:)), squeeze(groupDeriv)')
-% %%
-% i=i+1;
-% figure(i)
-% clf
-% cols = length(goodSubs);
-% rows=2;
-% for iSub=1:length(goodSubs)
-%     for rwd=1:2
-%         subplot(rows,cols,(rwd-1)*cols+iSub)
-%         plot(subTrialResponse{goodSubs(iSub),iRoi,rwd});
-%         hold on
-%         plot(mean(subTrialResponse{goodSubs(iSub),iRoi,rwd},2),'k','linewidth',2);
-%     end
-% end
-% %%
-% i=i+1;
-% figure(i)
-% clf
-% cols = length(goodSubs);
-% rows=1;
-% for iSub=1:length(goodSubs)
-%     subplot(rows,cols,iSub)
-%     for rwd=1:2
-%         
-% %         plot(subTrialResponse{goodSubs(iSub),iRoi,rwd});
-% %         hold on
-% %         plot(mean(subTrialResponse{goodSubs(iSub),iRoi,rwd},2),'color',plotColors{rwd},'linewidth',2);
-%         plot(squeeze(subResponse(goodSubs(iSub),iRoi,rwd,:)), 'Color', plotColors{rwd}, 'linewidth', linewidth,'markersize',20);
-% 
-%         hold on
-%     end
-% end
+
 
 %% correlate trial-by-trial RT with response amplitude/timing
 %correlate RT with BOLD timing
@@ -683,43 +578,7 @@ xticklabels(trialLabels);
 title(['trial-by-trial correlations, ' rwdString{rwd}]);
  end
  
-%% CORRELATION MATRIX
-iRoi=2;
-% analysesMat = [smallSubDiff(:,iRoi),realSubMeanFftPhDiff(:,iRoi),subStdDiff(:,iRoi),realSubPhStdDiff(:,iRoi),realSubAmpStdDiff(:,iRoi),realSubStdVarDiff(:,iRoi),realSubRTvarDiff,realSubRTdiff];
-% lbls = {'std amp','mean phase', 'timepoint var','FFT ph var','FFT amp var','std amp var','RT var','mean RT' };
-% analysesMat = [smallSubDiff(:,iRoi),realSubMeanFftPhDiff(:,iRoi),realSubPhStdDiff(:,iRoi),realSubAmpStdDiff(:,iRoi),realSubStdVarDiff(:,iRoi),subStdDiff(:,iRoi),realSubRTvarDiff,realSubRTdiff];
-% lbls = {'std amp','mean phase','FFT ph var','FFT amp var','std amp var', 'timepoint var','RT var','mean RT' };
 
-analysesMat = [realSubMeanFftPhDiff(:,iRoi),realSubPhStdDiff(:,iRoi),smallSubDiff(:,iRoi),realSubAmpStdDiff(:,iRoi),realSubStdVarDiff(:,iRoi),subStdDiff(:,iRoi),realSubRTvarDiff,realSubRTdiff];
-lbls = {'mean phase','FFT ph var','std amp','FFT amp var','std amp var', 'timepoint var','RT var','mean RT' };
-
-
-[rmat pmat] = corr(analysesMat);
-for ianalysis=1:size(pmat,1)
-%     rmat(ianalysis,ianalysis) = 1;
-    pmat(ianalysis,ianalysis) = 0;
-end
-
- i=i+1; figure; clf
- rows=1; 
- cols=2;
-subplot(rows,cols,1)
-imagesc(rmat)
-
-yticks(1:length(lbls));
-yticklabels(lbls);
-
- subplot(rows,cols,2)
- imagesc(pmat<0.05);
-yticks(1:length(lbls));
-yticklabels(lbls);
-
-i=i+1; figure; clf
-pd = pdist(analysesMat','correlation');
-Y = cmdscale(pd);
-% Y = mdscale(pd,2);
-scatter(Y(:,1),Y(:,2),70,1:size(Y,1))
-colormap jet
 %%
 mean(subPropCorrect)
 std(subPropCorrect)

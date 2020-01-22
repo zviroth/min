@@ -1,10 +1,11 @@
 close all
 clear all
 tic
-onlyCorrect=0;%1=correct,2=incorrect,0=all
-toZscore=0;%0 or 1
+maxRT=4000;
+onlyCorrect=0;%1=correct,2=incorrect,0=all trials with response, 4=all trials.
+toZscore=1;%0 or 1
 regressGlobalMean = 0;
-ConcatProj = 0;
+ConcatProj = 1;
 curFolder = pwd;
 dataFolder = '/Volumes/MH02086153MACDT-Drobo/allMinSubjects_concatenated/';
 subFolders = {'000520180116', '0008i20180213', '0016i20180207', '002220171212', ...
@@ -17,7 +18,7 @@ numSubs=length(subFolders);
 % roiNames = {'rV1_eccen8', 'lV1_eccen8','rV2_eccen8','lV2_eccen8','rV3_eccen8','lV3_eccen8','rh_17Networks_16','lh_17Networks_16'};
 % roiNames = {'leftBenson', 'rightBenson'};
 % roiNames = { 'leftBenson', 'rightBenson','lV1_eccen8','rV1_eccen8','lV2_eccen8','rV2_eccen8','lV3_eccen8','rV3_eccen8','lh_17Networks_16','rh_17Networks_16'};
-roiNames = { 'leftBenson', 'rightBenson','lh_17Networks_16','rh_17Networks_16','leftCerebellarCortex','rightCerebellarCortex'};
+roiNames = { 'leftBenson', 'rightBenson','lh_17Networks_16','rh_17Networks_16'};
 
 
 cd(dataFolder);
@@ -95,6 +96,45 @@ for iSub = 1:numSubs
         allVoxTaskPhase{iSub,rwd} = angle(f);
         allVoxTaskAmp{iSub,rwd} = abs(f);
         
+        
+        for r=1:length(s)
+            %if subject stopped responding at a certain point we
+            %need to fill in the last incorrect trials:
+            runRwd{iSub,iScan}(r) = s{r}.stimulus.rewardVal;
+            trialCorrectness{iSub,rwd}(r,:) = [s{r}.stimulus.trialCorrectness zeros(1,17-size(s{r}.stimulus.trialCorrectness,2))];
+            trialResponse{iSub,rwd}(r,:) = [s{r}.stimulus.trialResponse zeros(1,17-size(s{r}.stimulus.trialResponse,2))];%0 means no response
+            trialRT{iSub,rwd}(r,:) = [s{r}.stimulus.trialRT NaN(1,17-size(s{r}.stimulus.trialRT,2))];
+            propCorrect{iSub,rwd}(r) = s{r}.stimulus.percentCorrect;
+            stairThresh{iSub,rwd}(r,:) = [s{r}.stimulus.stair{1}.threshold s{r}.stimulus.stair{2}.threshold];
+            
+        end
+        subMeanCorrectness(iSub,rwd) = mean(trialCorrectness{iSub,rwd}(:));
+        subMeanRT(iSub,rwd) = mean(trialRT{iSub,rwd}(trialRT{iSub,rwd}(:)>0));
+        subMedianRT(iSub,rwd) = median(trialRT{iSub,rwd}(:));
+        subMeanThresh(iSub,rwd) = mean(stairThresh{iSub,rwd}(:));
+        
+        expName{iSub,rwd} = s{iScan}.task{1}.taskFilename;
+        
+        temp = trialCorrectness{iSub,rwd}(:,2:end-1);
+        trialCorrectnessVec = temp(:);
+        temp = trialResponse{iSub,rwd}(:,2:end-1);
+        trialResponseVec = temp(:);
+        temp = trialRT{iSub,rwd}(:,2:end-1);
+        trialRTvec = temp(:);
+        
+        if onlyCorrect ==1 %ONLY CORRECT
+            goodTrials = trialCorrectnessVec==1 & trialRTvec>0 & trialRTvec<maxRT;
+            %                 numTrials = sum(trialCorrectnessVec);
+        elseif onlyCorrect ==2 % ONLY INCORRECT!!!
+            goodTrials = trialCorrectnessVec==0 & trialResponseVec>0 & trialRTvec>0 & trialRTvec<maxRT;
+        elseif onlyCorrect == 0 % including all trials with a response
+            goodTrials = trialResponseVec>0 & trialRTvec>0 & trialRTvec<maxRT;
+        else%onlyCorrect == 4
+            goodTrials = ones(size(trialResponseVec));%ALL trials
+        end
+        %             trialRT{iSub,rwd};
+
+        
         for iRoi = 1:length(roiNames)
             
 
@@ -108,36 +148,11 @@ for iSub = 1:numSubs
                 regressBetasGlobal{iSub,rwd,iRoi} = globalMean{iSub,rwd}\roiTC{iSub,iRoi,rwd}.tSeries';
                 roiTC{iSub,iRoi,rwd}.tSeries = roiTC{iSub,iRoi,rwd}.tSeries - regressBetasGlobal{iSub,rwd,iRoi}'*globalMean{iSub,rwd}';
             end
-            
-            for r=1:length(s)
-                %if subject stopped responding at a certain point we
-                %need to fill in the last incorrect trials:
-                runRwd{iSub,iScan}(r) = s{r}.stimulus.rewardVal;
-                trialCorrectness{iSub,rwd}(r,:) = [s{r}.stimulus.trialCorrectness zeros(1,17-size(s{r}.stimulus.trialCorrectness,2))];
-                trialResponse{iSub,rwd}(r,:) = [s{r}.stimulus.trialResponse zeros(1,17-size(s{r}.stimulus.trialResponse,2))];%0 means no response
-                trialRT{iSub,rwd}(r,:) = [s{r}.stimulus.trialRT NaN(1,17-size(s{r}.stimulus.trialRT,2))];
-                propCorrect{iSub,rwd}(r) = s{r}.stimulus.percentCorrect;
-                stairThresh{iSub,rwd}(r,:) = [s{r}.stimulus.stair{1}.threshold s{r}.stimulus.stair{2}.threshold];
-                
-            end
-            subMeanCorrectness(iSub,rwd) = mean(trialCorrectness{iSub,rwd}(:));
-            subMeanRT(iSub,rwd) = mean(trialRT{iSub,rwd}(trialRT{iSub,rwd}(:)>0));
-            subMedianRT(iSub,rwd) = median(trialRT{iSub,rwd}(:));
-            subMeanThresh(iSub,rwd) = mean(stairThresh{iSub,rwd}(:));
-            
-            expName{iSub,rwd} = s{iScan}.task{1}.taskFilename;
-            
-            
-            
-            
-            
+
             roiMeanTseries{iSub,iRoi,rwd}(:) = nanmean(roiTC{iSub,iRoi,rwd}.tSeries);%mean across voxels
             %             foo = nanmean(rois{iRoi}{rwd}.tSeries(goodVox{iRoi}{selectionRun}==1,:))-1;
             subTrialResponse{iSub,iRoi,rwd} = reshape(roiMeanTseries{iSub,iRoi,rwd}(:), trialLength, length(roiMeanTseries{iSub,iRoi,rwd}(:))/trialLength);
-            temp = trialCorrectness{iSub,rwd}(:,2:end-1);
-            trialCorrectnessVec = temp(:);
-            temp = trialResponse{iSub,rwd}(:,2:end-1);
-            trialResponseVec = temp(:);
+ 
             
             
             %average per run - ALL TRIALS AVERAGED, NOT ONLY CORRECT TRIALS
@@ -148,16 +163,8 @@ for iSub = 1:numSubs
             
             subMeanRunTC(iSub,iRoi,rwd,:) = squeeze(mean(reshapedTrials,2));%average over runs
             subStdRunTC(iSub,iRoi,rwd,:) = squeeze(std(reshapedTrials,0,2));%std over runs
-            
-            if onlyCorrect ==1 %ONLY CORRECT
-                goodTrials = trialCorrectnessVec==1;
-                %                 numTrials = sum(trialCorrectnessVec);
-            elseif onlyCorrect ==2 % ONLY INCORRECT!!!
-                goodTrials = trialCorrectnessVec==0 & trialResponseVec>0;
-            else % including all trials with a response
-                goodTrials = trialResponseVec>0;
-            end
-            subTrialResponse{iSub,iRoi,rwd} = subTrialResponse{iSub,iRoi,rwd}(:,goodTrials);
+
+            subTrialResponse{iSub,iRoi,rwd} = subTrialResponse{iSub,iRoi,rwd}(:,goodTrials==1);
             reshapedTrials = reshape(subTrialResponse{iSub,iRoi,rwd},trialLength,[]);
             if iSub==1
                 allTrials{iRoi,rwd} = reshapedTrials;
@@ -207,6 +214,8 @@ if onlyCorrect==1
     onlyCorrectString = '_correct';
 elseif onlyCorrect==2
     onlyCorrectString = '_incorrect';
+elseif onlyCorrect==0
+    onlyCorrectString = '_validresponse';
 end
 zScoreString = '';
 if toZscore
@@ -231,7 +240,8 @@ save([dataFolder 'rwdTC_concat' onlyCorrectString zScoreString globalMeanString 
     'globalMean','regressBetasGlobal','runRwd',...
     'subRoiRuns','runMeanFFT',...
     'allVoxTrialResponse','allVoxTaskPhase','allVoxTaskAmp','allVoxTaskCo',...
-    'voxTrials','voxGoodTrials','meanVoxTrial');
+    'voxTrials','voxGoodTrials','meanVoxTrial',...
+    'maxRT');
 
 runRwd
 toc
