@@ -181,11 +181,11 @@ for iSub = 1:numSubs
             rv{iSub,rwd,r}(1:respStdWindow) = rv{iSub,rwd,r}(t);
             rv{iSub,rwd,r}(end:ecgRunLength) = NaN;
 %             rvt{iSub,rwd,r}(end:ecgRunLength) = NaN;
-            temp = reshape(rv{iSub,rwd,r}, ecgTrial,[]);
+%             temp = reshape(rv{iSub,rwd,r}, ecgTrial,[]);
             %             rv{iSub,rwd,r}(1:respStdWindow) = squeeze(mean(temp(1:respStdWindow,:),2));%extrapolate to first trial from mean across trials
-            trialsRV{iSub,rwd}(r,:,:) = reshape(rv{iSub,rwd,r}, ecgTrial,[]);
+%             trialsRV{iSub,rwd}(r,:,:) = reshape(rv{iSub,rwd,r}, ecgTrial,[]);
             %             trialsRVT{iSub,rwd}(r,:,:) = reshape(rvt{iSub,rwd,r}, ecgTrial,[]);
-            meanTrialRvRun{iSub,rwd}(r,:) = squeeze(mean(trialsRV{iSub,rwd}(r,:,2:end),3));%mean across trials, exclude first trial
+%             meanTrialRvRun{iSub,rwd}(r,:) = squeeze(mean(trialsRV{iSub,rwd}(r,:,2:end),3));%mean across trials, exclude first trial
             %             meanTrialRvtRun{iSub,rwd}(r,:) = squeeze(mean(trialsRVT{iSub,rwd}(r,:,2:end),3));%mean across trials, exclude first trial
             
             %ECG
@@ -215,14 +215,14 @@ for iSub = 1:numSubs
             interpPulseRate{iSub,rwd,r} = interp1(ecgRateTime{iSub,rwd,r}, ecgPulseRate{iSub,rwd,r}, 1:length(ecg{iSub,rwd,r}), ecgInterpMethod, 'extrap');
             interpPulseRate{iSub,rwd,r}(end:ecgRunLength) = NaN;
             
-            trialsPulseRate{iSub,rwd}(r,:,:) = reshape(interpPulseRate{iSub,rwd,r}, ecgTrial,[]);
-            meanTrialPulseRateRun{iSub,rwd}(r,:) = squeeze(mean(trialsPulseRate{iSub,rwd}(r,:,:),3));%mean across trials
+%             trialsPulseRate{iSub,rwd}(r,:,:) = reshape(interpPulseRate{iSub,rwd,r}, ecgTrial,[]);
+%             meanTrialPulseRateRun{iSub,rwd}(r,:) = squeeze(mean(trialsPulseRate{iSub,rwd}(r,:,:),3));%mean across trials
             
         end
         
         %RESPIRATION
 %         rwdMeanRVT(iSub,rwd,:) = mean(meanTrialRvtRun{iSub,rwd});
-        rwdMeanRV(iSub,rwd,:) = mean(meanTrialRvRun{iSub,rwd});
+%         rwdMeanRV(iSub,rwd,:) = mean(meanTrialRvRun{iSub,rwd});
         rwdRvTC{iSub,rwd} = [];
 %         rwdRvtTC{iSub,rwd} = [];
         for r=1:numRuns(iSub,rwd)
@@ -232,6 +232,7 @@ for iSub = 1:numSubs
         end
         %downsample pulse using median
         trRV = reshape(rwdRvTC{iSub,rwd}, ecgSampleRate*1.5,[]);
+%         rwdSubMeanPulse(iSub,rwd,:) = mean(trRV,2);
 %         trRVT = reshape(rwdRvtTC{iSub,rwd}, ecgSampleRate*1.5,[]);
         downsampledRV{iSub,rwd} = nanmedian(trRV);
 %         downsampledRVT{iSub,rwd} = nanmedian(trRVT);
@@ -247,12 +248,12 @@ for iSub = 1:numSubs
         
         %ECG
 %         rwdMeanPeaksDiff(iSub,rwd,:) = mean(meanTrialPeaksDiffRun{iSub,rwd});
-        rwdMeanPulseRate(iSub,rwd,:) = mean(meanTrialPulseRateRun{iSub,rwd});
+%         rwdMeanPulseRate(iSub,rwd,:) = mean(meanTrialPulseRateRun{iSub,rwd});
         %concatenate all pulse traces for this rwd
         rwdPulseTC{iSub,rwd} = [];
         for r=1:numRuns(iSub,rwd)
             %removing junked frames & concatenate
-            rwdPulseTC{iSub,rwd} = horzcat(rwdPulseTC{iSub,rwd}, interpPulseRate{iSub,rwd,r}(ecgSampleRate*1.5*junkedFrames+1:end));
+            rwdPulseTC{iSub,rwd} = horzcat(rwdPulseTC{iSub,rwd}, interpPulseRate{iSub,rwd,r}(ecgSampleRate*TR*junkedFrames+1:end));
         end
         %downsample pulse using median
         trPulse = reshape(rwdPulseTC{iSub,rwd}, ecgSampleRate*1.5,[]);
@@ -268,6 +269,14 @@ for iSub = 1:numSubs
         designMatPulse{iSub,rwd} = designMatPulse{iSub,rwd}(:,goodTRs);
         designMatResp{iSub,rwd} = designMatResp{iSub,rwd}(:,goodTRs);
         designMatRespPulse{iSub,rwd} = designMatRespPulse{iSub,rwd}(:,goodTRs);
+        
+        temp = reshape(rwdPulseTC{iSub,rwd},ecgTrial,[]);
+        temp= temp(:,goodTrials);
+        rwdPulseTC{iSub,rwd} = temp(:);
+        
+        temp = reshape(rwdRvTC{iSub,rwd},ecgTrial,[]);
+        temp= temp(:,goodTrials);
+        rwdRvTC{iSub,rwd} = temp(:);
         
         %compute Fourier amp and angle of task-related response, for ALL voxels
         fullFft = fft(allTseries,[],2);
@@ -400,7 +409,7 @@ save([dataFolder 'rwdTC_physio' onlyCorrectString zScoreString globalMeanString 
     'ecgselect','ecgSampleRate','ecgTrial','ecgRunLength','ecgInterpMethod',...
     'ecg','ecgPulseRate','interpPulseRate',...
     'respselect','resp',...
-    'rwdRvTC','downsampledRV',...
+    'rwdPulseTC','rwdRvTC',...
     'designMatPulse','designMatRespPulse','designMatResp','deconvLength',...
     'allGoodTrials');
 

@@ -45,7 +45,7 @@ load([dataFolder 'rwdTC_physio' onlyCorrectString zScoreString globalMeanString 
     'ecgselect','ecgSampleRate','ecgTrial','ecgRunLength','ecgInterpMethod',...
     'ecg','ecgPulseRate','interpPulseRate',...
     'respselect','resp',...
-    'rwdRvTC','downsampledRV',...
+    'rwdPulseTC','rwdRvTC',...
     'designMatPulse','designMatRespPulse','designMatResp','deconvLength',...
     'allGoodTrials');
 
@@ -95,9 +95,32 @@ for iSub = 1:length(goodSubs)%length(subdirs)
         for rwd=1:2
 %             reshapedTrials = reshape(subTrialResponse{goodSubs(iSub),iRoi,rwd},10,[]);
 
+
+
+        trRV{iSub,rwd} = reshape(rwdRvTC{iSub,rwd}, ecgTrial,[]);%this is only good trials!
+        subMeanRV(iSub,rwd,:) = nanmean(trRV{iSub,rwd},2);
+        subRespStd(iSub,rwd) = std(subMeanRV(iSub,rwd,:));%std amplitude of mean
+        subRespVar(iSub,rwd,:) = nanstd(trRV{iSub,rwd},0,2);%timepoint variability
+        respStd = nanstd(trRV{iSub,rwd});%std amp per trial
+        subRespStdVar(iSub,rwd) = std(respStd);
+        f = fft(trRV{iSub,rwd});
+        subRespPhVar(iSub,rwd) = nanstd(angle(f(2,:)));
+        subRespAmpVar(iSub,rwd) = nanstd(abs(f(2,:)));
+        
+        
+        trPulse{iSub,rwd} = reshape(rwdPulseTC{iSub,rwd}, ecgTrial,[]);%this is only good trials!
+        subMeanPulse(iSub,rwd,:) = nanmean(trPulse{iSub,rwd},2);
+        subPulseStd(iSub,rwd) = std(subMeanPulse(iSub,rwd,:));%std amplitude of mean
+        subPulseVar(iSub,rwd,:) = nanstd(trPulse{iSub,rwd},0,2);%timepoint variability
+        pulseStd = nanstd(trPulse{iSub,rwd});%std amp per trial
+        subPulseStdVar(iSub,rwd) = std(pulseStd);
+        f = fft(trPulse{iSub,rwd});
+        subPulsePhVar(iSub,rwd) = nanstd(angle(f(2,:)));
+        subPulseAmpVar(iSub,rwd) = nanstd(abs(f(2,:)));
+        
             %REGRESS OUT PHYSIO
             %roiMeanTseries{iSub,iRoi,rwd} includes all trials
-           pulseKernel(iSub,iRoi,rwd,:) = designMatPulse{iSub,rwd}'\subTrialResponse{iSub,iRoi,rwd}(:);
+           pulseKernel(iSub,iRoi,rwd,:) = designMatPulse{iSub,rwd}'\subTrialResponse{iSub,iRoi,rwd}(:);%this is only good trials!
            pulseResidualTC{iSub,iRoi,rwd} = subTrialResponse{iSub,iRoi,rwd}(:)' - squeeze(pulseKernel(iSub,iRoi,rwd,:))'*designMatPulse{iSub,rwd};
 
            respKernel(iSub,iRoi,rwd,:) = designMatResp{iSub,rwd}'\subTrialResponse{iSub,iRoi,rwd}(:);
@@ -208,8 +231,63 @@ for iSub = 1:length(goodSubs)%length(subdirs)
     end
     subRT = [trialRTvec{iSub,1}; trialRTvec{iSub,2}];
     
+    subRV = [trRV{iSub,1} trRV{iSub,2}];%750 timepoints, trials
+%     subRespVar = nanstd(subRV);%std amp per trial
+    subPulse = [trPulse{iSub,1} trPulse{iSub,2}];
+%     subPulseVar = nanstd(subPulse);%std amp per trial
+    
+    %pulse & respiration deconvolution design matrices
+    temp = [designMatPulse{iSub,1} designMatPulse{iSub,2}];
+    designMatPulseTrials = reshape(temp,deconvLength,trialLength,[]);%10 deconvolution points, 10 trial timepoints, X trials
+    temp = [designMatResp{iSub,1} designMatResp{iSub,2}];
+    designMatRespTrials = reshape(temp,deconvLength,trialLength,[]);%10 deconvolution points, 10 trial timepoints, X trials
+    temp = [designMatRespPulse{iSub,1} designMatRespPulse{iSub,2}];
+    designMatPhysioTrials = reshape(temp,deconvLength,trialLength,[]);%10 deconvolution points, 10 trial timepoints, X trials
+ 
+        
     for p=1:nperms
         randOrder = randperm(numTrials(iSub,1)+numTrials(iSub,2));
+        
+
+        
+
+        for rwd=1:2
+            %mean pulse + respiration
+            permRV = subRV(:,randOrder(firstTrial(rwd):firstTrial(rwd)+numTrials(iSub,rwd)-1));
+            permSubRespStd(iSub,rwd,p) = std(nanmean(permRV,2));%std amp of avg
+            permSubRespStdVar(iSub,rwd,p) = std(nanstd(permRV));%std amp variability
+%             permSubRespStdVar(iSub,rwd,p) = std(subRespVar(randOrder(firstTrial(rwd):firstTrial(rwd)+numTrials(iSub,rwd)-1)));%std amp variability
+            permSubMeanRV(iSub,rwd,p,:) = nanmean(permRV,2);%mean  per permutation
+            permSubRespVar(iSub,rwd,p,:) = nanstd(permRV,0,2);%timepoint variability
+            f = fft(permRV);
+            permSubRespPhVar(iSub,rwd,p) = nanstd(angle(f(2,:)));
+            permSubRespAmpVar(iSub,rwd,p) = nanstd(abs(f(2,:)));
+            
+            
+            
+            permPulse = subPulse(:,randOrder(firstTrial(rwd):firstTrial(rwd)+numTrials(iSub,rwd)-1));
+            permSubPulseStd(iSub,rwd,p) = std(nanmean(permPulse,2));%std amp of avg
+            permSubPulseStdVar(iSub,rwd,p) = std(nanstd(permPulse));%std amp variability
+%             permSubPulseStdVar(iSub,rwd,p) = std(subPulseVar(randOrder(firstTrial(rwd):firstTrial(rwd)+numTrials(iSub,rwd)-1)));%std amp variability
+            permSubMeanPulse(iSub,rwd,p,:) = nanmean(permPulse,2);
+            permSubPulseVar(iSub,rwd,p,:) = nanstd(permRV,0,2);%timepoint variability
+            f = fft(permPulse);
+            permSubPulsePhVar(iSub,rwd,p) = nanstd(angle(f(2,:)));
+            permSubPulseAmpVar(iSub,rwd,p) = nanstd(abs(f(2,:)));
+
+            
+            %physio deconvolution kernels
+            temp = designMatPulseTrials(:,:,randOrder(firstTrial(rwd):firstTrial(rwd)+numTrials(iSub,rwd)-1));
+            permDesignMatPulse{iSub,rwd} = reshape(temp,deconvLength,[]);
+            temp = designMatRespTrials(:,:,randOrder(firstTrial(rwd):firstTrial(rwd)+numTrials(iSub,rwd)-1));
+            permDesignMatResp{iSub,rwd} = reshape(temp,deconvLength,[]);
+            temp = designMatPhysioTrials(:,:,randOrder(firstTrial(rwd):firstTrial(rwd)+numTrials(iSub,rwd)-1));
+            permDesignMatPhysio{iSub,rwd} = reshape(temp,deconvLength,[]);
+
+        end
+        
+        
+        
         for iRoi= ROIs%length(roiNames)
             for rwd=1:2
                 permTrials = roiTrials{iRoi}(:,randOrder(firstTrial(rwd):firstTrial(rwd)+numTrials(iSub,rwd)-1));% 10 timepoints X #trials
@@ -220,10 +298,6 @@ for iSub = 1:length(goodSubs)%length(subdirs)
                 temp=fft(permSubMeanTC(iSub,iRoi,rwd,p,:));
                 permSubMeanFftAmp(iSub,iRoi,rwd,p) = abs(temp(2));
                 permSubMeanFftPh(iSub,iRoi,rwd,p) = angle(temp(2));
-                
-                
-%                 temp = abs(fft(permSubMeanTC(iSub,iRoi,rwd,p,:)));
-%                 permSubFFT(iSub,iRoi,rwd,p) = temp(ntrials+1);
 
                 permSubStd(iSub,iRoi,rwd,p,:) = std(permTrials,0,2);%variability timecourse over trials
                 
@@ -245,6 +319,11 @@ for iSub = 1:length(goodSubs)%length(subdirs)
                 permSubMedianStd(iSub,iRoi,rwd,p) = median(std(permTrials));
                 
                 permSubStdVar(iSub,iRoi,rwd,p) = std(std(permTrials));
+                
+                %physio
+                permPulseKernel(iSub,iRoi,rwd,p,:) = permDesignMatPulse{iSub,rwd}'\permTrials(:);
+                permRespKernel(iSub,iRoi,rwd,p,:) = permDesignMatResp{iSub,rwd}'\permTrials(:);
+                permPhysioKernel(iSub,iRoi,rwd,p,:) = permDesignMatPhysio{iSub,rwd}'\permTrials(:);
             end
         end
         for rwd=1:2
@@ -309,7 +388,103 @@ for iSub = 1:length(goodSubs)%length(subdirs)
 end
 
 
+% permSubRespStd = nanstd(permSubMeanRV,0,4);
 
+%permSubPulseStd permSubMeanPulse permSubPulseVar permSubPulsePhVar permSubPulseAmpVar
+%subPulseStd subPulseVar subPulsePhVar subPulseAmpVar
+
+
+permSubRespStdDiff = squeeze(permSubRespStd(:,1,:) - permSubRespStd(:,2,:));%iSub,perm
+permSubRespStdVarDiff = squeeze(permSubRespStdVar(:,2,:) - permSubRespStdVar(:,1,:));
+permSubRespPhVarDiff =  squeeze(permSubRespPhVar(:,2,:) - permSubRespPhVar(:,1,:));
+permSubRespAmpVarDiff =  squeeze(permSubRespAmpVar(:,2,:) - permSubRespAmpVar(:,1,:));
+permSubRespVarMean = squeeze(mean(permSubRespVar,4));
+permSubRespVarDiff = squeeze(permSubRespVarMean(:,2,:) - permSubRespVarMean(:,1,:));
+
+permSubPulseStdDiff = squeeze(permSubPulseStd(:,1,:) - permSubPulseStd(:,2,:));
+permSubPulseStdVarDiff = squeeze(permSubPulseStdVar(:,2,:) - permSubPulseStdVar(:,1,:));
+permSubPulsePhVarDiff =  squeeze(permSubPulsePhVar(:,2,:) - permSubPulsePhVar(:,1,:));
+permSubPulseAmpVarDiff =  squeeze(permSubPulseAmpVar(:,2,:) - permSubPulseAmpVar(:,1,:));
+permSubPulseVarMean = squeeze(mean(permSubPulseVar,4));
+permSubPulseVarDiff = squeeze(permSubPulseVarMean(:,2,:) - permSubPulseVarMean(:,1,:));
+
+%PULSE P VALUES
+realSubPulseStdDiff = subPulseStd(:,1) - subPulseStd(:,2);
+pval_pulseStd = sum(mean(permSubPulseStdDiff)>=mean(realSubPulseStdDiff))/nperms;
+
+realSubPulseStdVarDiff = subPulseStdVar(:,2) - subPulseStdVar(:,1);
+pval_pulseStdVar = sum(mean(permSubPulseStdVarDiff)>=mean(realSubPulseStdVarDiff))/nperms;
+
+realSubPulsePhVarDiff = subPulsePhVar(:,2) - subPulsePhVar(:,1);
+pval_pulsePhVar = sum(mean(permSubPulsePhVarDiff)>=mean(realSubPulsePhVarDiff))/nperms;
+
+realSubPulseAmpVarDiff = subPulseAmpVar(:,2) - subPulseAmpVar(:,1);
+pval_pulseAmpVar = sum(mean(permSubPulseAmpVarDiff)>=mean(realSubPulseAmpVarDiff))/nperms;
+
+subPulseVarMean = mean(subPulseVar,3);%mean timepoint variability
+realSubPulseVarMeanDiff = subPulseVarMean(:,2) - subPulseVarMean(:,1);
+pval_pulseVarMean = sum(mean(permSubPulseVarDiff)>=mean(realSubPulseVarMeanDiff))/nperms;
+
+%RESPIRATION P VALUES
+realSubRespStdDiff = subRespStd(:,1) - subRespStd(:,2);
+pval_respStd = sum(mean(permSubRespStdDiff)>=mean(realSubRespStdDiff))/nperms;
+
+realSubRespStdVarDiff = subRespStdVar(:,2) - subRespStdVar(:,1);
+pval_respStdVar = sum(mean(permSubRespStdVarDiff)>=mean(realSubRespStdVarDiff))/nperms;
+
+realSubRespPhVarDiff = subRespPhVar(:,2) - subRespPhVar(:,1);
+pval_respPhVar = sum(mean(permSubRespPhVarDiff)>=mean(realSubRespPhVarDiff))/nperms;
+
+realSubRespAmpVarDiff = subRespAmpVar(:,2) - subRespAmpVar(:,1);
+pval_respAmpVar = sum(mean(permSubRespAmpVarDiff)>=mean(realSubRespAmpVarDiff))/nperms;
+
+subRespVarMean = mean(subRespVar,3);%mean timepoint variability
+realSubRespVarMeanDiff = subRespVarMean(:,2) - subRespVarMean(:,1);
+pval_respVarMean = sum(mean(permSubRespVarDiff)>=mean(realSubRespVarMeanDiff))/nperms;
+
+keyboard
+
+
+
+realSubPulseKernelStd = std(pulseKernel,0,4);
+realSubPulseKernelStdDiff = realSubPulseKernelStd(:,:,1) - realSubPulseKernelStd(:,:,2);
+meanRealPulseKernelStdDiff = squeeze(mean(realSubPulseKernelStdDiff));
+permSubPulseKernelStd = std(permPulseKernel,0,5);%permPulseKernel(iSub,iRoi,rwd,p,:)
+permSubPulseKernelStdDiff = permSubPulseKernelStd(:,:,1,:) - permSubPulseKernelStd(:,:,2,:);
+meanPermPulseKernelStdDiff = squeeze(mean(permSubPulseKernelStdDiff));
+pval_pulseKernel_std = sum(meanPermPulseKernelStdDiff'>=meanRealPulseKernelStdDiff)./nperms;
+
+realSubRespKernelStd = std(respKernel,0,4);
+realSubRespKernelStdDiff = realSubRespKernelStd(:,:,1) - realSubRespKernelStd(:,:,2);
+meanRealRespKernelStdDiff = squeeze(mean(realSubRespKernelStdDiff));
+permSubRespKernelStd = std(permRespKernel,0,5);%permPulseKernel(iSub,iRoi,rwd,p,:)
+permSubRespKernelStdDiff = permSubRespKernelStd(:,:,1,:) - permSubRespKernelStd(:,:,2,:);
+meanPermRespKernelStdDiff = squeeze(mean(permSubRespKernelStdDiff));
+pval_respKernel_std = sum(meanPermRespKernelStdDiff'>=meanRealRespKernelStdDiff)./nperms;
+
+% realSubPulseStd = std(pulseKernel,0,4);
+% realSubPulseStdDiff = realSubPulseStd(:,:,1) - realSubPulseStd(:,:,2);
+% meanRealPulseStdDiff = squeeze(mean(realSubPulseStdDiff));
+% permSubPulseStd = std(permPulseKernel,0,5);%permPulseKernel(iSub,iRoi,rwd,p,:)
+% permSubPulseStdDiff = permSubPulseStd(:,:,1,:) - permSubPulseStd(:,:,2,:);
+% meanPermPulseStdDiff = squeeze(mean(permSubPulseStdDiff));
+% pval_pulse_std = sum(meanPermPulseStdDiff'>=meanRealPulseStdDiff)./nperms;
+% 
+% realSubRespStd = std(respKernel,0,4);
+% realSubRespStdDiff = realSubRespStd(:,:,1) - realSubRespStd(:,:,2);
+% meanRealRespStdDiff = squeeze(mean(realSubRespStdDiff));
+% permSubRespStd = std(permRespKernel,0,5);%permPulseKernel(iSub,iRoi,rwd,p,:)
+% permSubRespStdDiff = permSubRespStd(:,:,1,:) - permSubRespStd(:,:,2,:);
+% meanPermRespStdDiff = squeeze(mean(permSubRespStdDiff));
+% pval_resp_std = sum(meanPermRespStdDiff'>=meanRealRespStdDiff)./nperms;
+
+% realSubPhysioStd = std(physioKernel,0,4);
+% realSubPhysioStdDiff = realSubPhysioStd(:,:,1) - realSubPhysioStd(:,:,2);
+% meanRealPhysioStdDiff = squeeze(mean(realSubPhysioStdDiff));
+% permSubPhysioStd = std(permPhysioKernel,0,5);%permPulseKernel(iSub,iRoi,rwd,p,:)
+% permSubPhysioStdDiff = permSubPhysioStd(:,:,1,:) - permSubPhysioStd(:,:,2,:);
+% meanPermPhysioStdDiff = squeeze(mean(permSubPhysioStdDiff));
+% pval_physio_std = sum(meanPermPhysioStdDiff'>meanRealPhysioStdDiff);
 
 
 %single subject p-values for timepoint variability
@@ -580,7 +755,11 @@ title(['trial-by-trial correlations, ' rwdString{rwd}]);
  
 
 %%
-mean(subPropCorrect)
-std(subPropCorrect)
-mean(realSubRT)
-std(realSubRT)
+% mean(subPropCorrect)
+% std(subPropCorrect)
+% mean(realSubRT)
+% std(realSubRT)
+
+%%
+pval_pulseKernel_std
+pval_respKernel_std
