@@ -1,20 +1,22 @@
 close all
 clear all
 tic
-onlyCorrect=0;%1=correct,2=incorrect,0=all
+onlyCorrect=0;%1=correct,2=incorrect,0=all trials with response, 4=all trials.
 toZscore=0;%0 or 1
 regressGlobalMean = 0;
 ConcatProj = 1;
 curFolder = pwd;
 dataFolder = '/Volumes/MH02086153MACDT-Drobo/allMinSubjects_concatenated/';
 rwdString = {'high','low'};
-plotColors = {[1 0 0], [0 0 1], [0 1 0]};
+plotColors = {[1 0 0], [0 0 1], [0 1 0], [1 1 0]};
 %%
 onlyCorrectString = '';
 if onlyCorrect==1
     onlyCorrectString = '_correct';
 elseif onlyCorrect==2
     onlyCorrectString = '_incorrect';
+elseif onlyCorrect==0
+    onlyCorrectString = '_validresponse';
 end
 zScoreString = '';
 if toZscore
@@ -39,7 +41,9 @@ load([dataFolder 'rwdTC_concat' onlyCorrectString zScoreString globalMeanString 
     'globalMean','regressBetasGlobal','runRwd',...
     'subRoiRuns','runMeanFFT',...
     'allVoxTrialResponse','allVoxTaskPhase','allVoxTaskAmp','allVoxTaskCo',...
-    'voxTrials','voxGoodTrials','meanVoxTrial');
+    'voxTrials','voxGoodTrials','meanVoxTrial',...
+    'maxRT');
+roiLabels = {'benson','localizer','DMN','cerebellum'};
 ifig=0;
 numSubs=length(subFolders);
 goodSubs = [1:3 5:length(subFolders)]; %excluding subject 22
@@ -108,12 +112,19 @@ for iRoi=1:length(roiNames)
    subplot(rows,cols,iRoi)
    imagesc(squeeze(meanPearsonsCorr(iRoi,:,:)));
    xticklabels(labels);
+   xticks(1:length(labels));
    yticklabels(labels);
+   yticks(1:length(labels));
+   if iRoi==1
+       title({'mean corr between vox'; roiNames{iRoi}});
+   else
    title(roiNames{iRoi});
+   end
    axis image
    caxis([-1 1]);
+%    title(['mean corr between voxels']);
 end
-
+ set(gcf,'position',[50 50 500 	800]);
 % figure(2); clf
 % meanPearsonsPval= squeeze(nanmean(pearsonsPval));%mean over subjects
 % for iRoi=1:length(roiNames)
@@ -179,7 +190,14 @@ for rwd=1:2
         caxis([-1 1]);
     end
 end
-
+for isubplot=1:cols*rows
+    subplot(rows,cols,isubplot)
+    yticklabels(roiNames);
+    yticks(1:length(roiNames));
+    xticklabels(roiLabels);
+%     xticks(1:length(roiNames));
+end
+set(gcf,'position',[120 120 800 800]);
 %% Correlate phase of mean response across subjects, between ROIs, within rwd
 for iSub = 1:length(goodSubs)
     for iRoi=1:length(roiNames)
@@ -212,8 +230,14 @@ for rwd=1:2
     axis square
     title(['mean phase per subject | ' rwdString{rwd}]);
     caxis([-1 1]);
-end
 
+    yticklabels(roiNames);
+    yticks(1:length(roiNames));
+    xticklabels(roiLabels);
+%     xticks(1:length(roiNames));
+
+end
+set(gcf,'position',[220 220 800 400]);
 
 
 ifig=ifig+1; figure(ifig); clf
@@ -238,14 +262,18 @@ for iSub = 1:length(goodSubs)
 end
 meanResponseCorr= squeeze(nanmean(responseCorr));%mean over subjects
 ifig=ifig+1; figure(ifig); clf
+rows=1;
+cols=2;
 for rwd=1:2
     subplot(rows,cols,rwd)
     imagesc(squeeze(meanResponseCorr(rwd,:,:)));
     title(['mean response timecourse | ' rwdString{rwd}]);
     caxis([-1 1]);
     axis square
+    yticklabels(roiNames)
+    xticklabels(roiLabels);
 end
-
+set(gcf,'position',[120 120 800 400]);
 
 %%
 for iSub = 1:length(goodSubs)
@@ -261,14 +289,15 @@ subPh = angle(f(:,:,2));
 subAmp = abs(f(:,:,2));
 
 %%
-i=i+1; figure(i); clf
+ifig=ifig+1; figure(ifig); clf
 titleStr = {'mean','H','L'};
 % plot(subReal, subImag, 'k.');
 rows=1;cols=3;
 nSTD = tinv(0.99,length(subFolders)-1)/sqrt(length(subFolders));
 nSTD = 2.5;
 
-twoRois = [1 2; 1 3; 2 3];
+twoRois = [1 2; 1 3; 1 4; 2 3; 2 4; 3 4];
+
 rows=size(twoRois,1);
 cols=3;
 
@@ -278,6 +307,7 @@ for i=1:size(twoRois,1)
         scatter(subReal(:,twoRois(i,iRoi)),  subImag(:,twoRois(i,iRoi)), 30, plotColors{twoRois(i,iRoi)},'filled');
         hline(0)
         vline(0)
+        title(roiLabels{twoRois(i,iRoi)});
     end
     subplot(rows,cols,(i-1)*cols+3)
     for iRoi=1:2
@@ -294,10 +324,183 @@ for i=1:rows*cols
     subplot(rows,cols,i)
     hline(0)
     vline(0)
+    axis square
 end
+ set(gcf,'position',[50 50 500 	800]);
 %%
 for iRoi1=1:length(roiNames)/2
     for iRoi2=1:length(roiNames)/2
         [nullSubCorr(iRoi1,iRoi2), nullSubPval(iRoi1,iRoi2)] = circ_corrcc(subPh(:,iRoi1),subPh(:,iRoi2));
     end
 end
+
+%% ECCENTRICITY BINS - ONLY FOR BENSON ROIs
+%bins by log eccentricity
+eccMin = 0.2;
+eccMax = 70;
+nbins = 12;
+% binBorders = (linspace(eccMin^3,eccMax^3,nbins+1))^(1/3)
+binBorders = logspace(log10(eccMin),log10(eccMax),nbins+1);
+
+% binBorders = [0.2 3 70];
+
+
+nbins = length(binBorders)-1;
+for i=2:length(binBorders)
+    binCenters(i-1) = (binBorders(i)+binBorders(i-1))/2;
+end
+
+clear subBinTrialResponse subBinResponse binVoxels numBinVoxels meanSubVoxCorr meanVoxCorr
+for iSub = 1:length(goodSubs)%length(subdirs)
+    for iRoi=1:2%length(roiNames)
+        for rwd=1:2
+            temp = trialCorrectness{goodSubs(iSub),rwd}(:,2:end-1);
+            trialCorrectnessVec = temp(:);
+            temp = trialResponse{goodSubs(iSub),rwd}(:,2:end-1);
+            trialResponseVec = temp(:);
+            temp = trialRT{goodSubs(iSub),rwd}(:,2:end-1);
+            trialRTvec = temp(:);
+            if onlyCorrect ==1 %ONLY CORRECT
+                goodTrials = trialCorrectnessVec==1 & trialRTvec>0 & trialRTvec<maxRT;
+                %                 numTrials = sum(trialCorrectnessVec);
+            elseif onlyCorrect ==2 % ONLY INCORRECT!!!
+                goodTrials = trialCorrectnessVec==0 & trialResponseVec>0 & trialRTvec>0 & trialRTvec<maxRT;
+            elseif onlyCorrect == 0 % including all trials with a response
+                goodTrials = trialResponseVec>0 & trialRTvec>0 & trialRTvec<maxRT;
+            else%onlyCorrect == 4
+                goodTrials = ones(size(trialResponseVec));%ALL trials
+            end
+                
+            for ibin=1:nbins
+                binVoxels = eccen{goodSubs(iSub),iRoi}>binBorders(ibin) & eccen{goodSubs(iSub),iRoi}<=binBorders(ibin+1);
+                numBinVoxels(iSub,iRoi,ibin) = sum(binVoxels);
+%                 binVoxels = binVoxels & areas{iSub,iRoi}==1;%ONLY V1
+                binVoxels = binVoxels & areas{goodSubs(iSub),iRoi}>0;%ONLY V1,V2,V3
+                binMeanTseries = nanmean(roiTC{goodSubs(iSub),iRoi,rwd}.tSeries(binVoxels,:));%mean timecourse across voxels
+                subBinTrialResponse{iSub,iRoi,ibin,rwd} = reshape(binMeanTseries, trialLength, length(binMeanTseries)/trialLength);
+                
+                
+                subBinTrialResponse{iSub,iRoi,ibin,rwd} = subBinTrialResponse{iSub,iRoi,ibin,rwd}(:,goodTrials);
+                
+                
+                reshapedTrials = reshape(subBinTrialResponse{iSub,iRoi,ibin,rwd},trialLength,[]);
+                if iSub==1
+                    allBinTrials{iRoi,ibin,rwd} = reshapedTrials;
+                else
+                    allBinTrials{iRoi,ibin,rwd} = [allBinTrials{iRoi,ibin,rwd} reshapedTrials];
+                end
+                %average per subject
+                subBinResponse(iSub,iRoi,ibin,rwd,:) = mean(subBinTrialResponse{iSub,iRoi,ibin,rwd},2);
+                %trial-by-trial variability per subject
+                subBinVar(iSub,iRoi,ibin,rwd) = mean(std(subBinTrialResponse{iSub,iRoi,ibin,rwd},0,2));
+                
+                temp = fft(subBinTrialResponse{iSub,iRoi,ibin,rwd});
+                roiBinFftAmp{iSub,iRoi,rwd}(ibin,:) = abs(temp(2,:));
+                roiBinFftPh{iSub,iRoi,rwd}(ibin,:) = angle(temp(2,:));
+                subBinFftAmpVar(iSub,iRoi,ibin,rwd) = std(roiBinFftAmp{iSub,iRoi,rwd}(ibin,:));
+                subBinFftPhVar(iSub,iRoi,ibin,rwd) = circ_std(roiBinFftPh{iSub,iRoi,rwd}(ibin,:)');
+                
+                subBinStd{iSub,iRoi,rwd}(ibin,:) = std(subBinTrialResponse{iSub,iRoi,ibin,rwd});
+%                 singleTrialStd = std(subBinTrialResponse{iSub,iRoi,ibin,rwd});
+                subBinStdVar(iSub,iRoi,ibin,rwd) = std(subBinStd{iSub,iRoi,rwd}(ibin,:));
+                subBinStdMean(iSub,iRoi,ibin,rwd) = mean(subBinStd{iSub,iRoi,rwd}(ibin,:));
+
+            end
+            %correlation between bins
+            for ibin1=1:nbins
+                for ibin2 = 1:nbins
+                    subBinCorrPh(iSub,iRoi, rwd, ibin1, ibin2) = circ_corrcc(roiBinFftPh{iSub,iRoi,rwd}(ibin1,:), roiBinFftPh{iSub,iRoi,rwd}(ibin2,:));
+%                     subBinCorrPh(iSub,iRoi, rwd, ibin1, ibin2) = corr(roiBinFftPh{iSub,iRoi,rwd}(ibin1,:)', roiBinFftPh{iSub,iRoi,rwd}(ibin2,:)');
+
+                end
+            end
+            subBinCorrAmp(iSub,iRoi, rwd,:,:) = corr(roiBinFftAmp{iSub,iRoi,rwd}');
+        end
+    end
+
+    %add other ROIs
+    for rwd=1:2
+        for iRoi=3:length(roiNames)
+            ihemi = 2-mod(iRoi,2);%1==left, 2==right
+            roiBinFftPh{iSub,ihemi,rwd}(end+1,:) = trialRoiFftPhVec{iSub,rwd}(iRoi,:);
+            roiBinFftAmp{iSub,ihemi,rwd}(end+1,:) = trialRoiFftAmpVec{iSub,rwd}(iRoi,:);
+            subBinStd{iSub,ihemi,rwd}(end+1,:) = trialRoiStdVec{iSub,rwd}(iRoi,:);
+            %         trialRoiStdVec
+        end
+        %     trialRoiFftPhVec{iSub,rwd}(iRoi1,:)
+    end
+    
+    %correlate
+    for rwd=1:2
+        for ibin1=1:size(roiBinFftPh{iSub,1,rwd},1)
+            for ibin2 = 1:size(roiBinFftPh{iSub,2,rwd},1)
+                subHemiBinCircCorrPh(iSub, rwd, ibin1, ibin2) = circ_corrcc(roiBinFftPh{iSub,1,rwd}(ibin1,:), roiBinFftPh{iSub,2,rwd}(ibin2,:));
+                subHemiBinCorrPh(iSub, rwd, ibin1, ibin2) = corr(roiBinFftPh{iSub,1,rwd}(ibin1,:)', roiBinFftPh{iSub,2,rwd}(ibin2,:)');
+
+            end
+        end
+        subHemiBinCorrAmp(iSub, rwd,:,:) = corr(roiBinFftAmp{iSub,1,rwd}', roiBinFftAmp{iSub,2,rwd}');
+        subHemiBinCorrStd(iSub, rwd,:,:) = corr(subBinStd{iSub,1,rwd}', subBinStd{iSub,2,rwd}');
+    end
+end
+%% correlations of trial phases between bins, separately for each hemisphere
+ifig=ifig+1; figure(ifig); clf
+rows=2;
+cols=2;
+for iRoi=1:2%length(roiNames)
+    for rwd=1:2
+        subplot(rows,cols,iRoi + (rwd-1)*cols);
+        imagesc(squeeze(mean(subBinCorrPh(:,iRoi,rwd,:,:))));
+        title(['latency: ' roiNames{iRoi} ' ' rwdString{rwd}]);
+        axis square
+    end
+end
+%% correlations of trial phases between bins, between hemispheres
+ifig=ifig+1; figure(ifig); clf
+rows=4;
+cols=2;
+%linear correlations of trial phases
+for rwd=1:2
+    subplot(rows,cols,rwd);
+    imagesc(squeeze(mean(subHemiBinCorrPh(:,rwd,:,:))));
+    title(['latency, linear,  ' rwdString{rwd}]);
+    xlabel('left benson'); ylabel('right benson');
+    axis square
+    xticks;
+    xticklabels;
+end
+%linear correlations of trial phases
+for rwd=1:2
+    subplot(rows,cols,rwd+cols);
+    imagesc(squeeze(mean(subHemiBinCircCorrPh(:,rwd,:,:))));
+    title(['latency, circular,  ' rwdString{rwd}]);
+    xlabel('left benson'); ylabel('right benson');
+    axis square
+end
+% correlations of trial FFT amplitudes between bins, between hemispheres
+for rwd=1:2
+    subplot(rows,cols,rwd+2*cols);
+    imagesc(squeeze(mean(subHemiBinCorrAmp(:,rwd,:,:))));
+    title(['fft amplitude,  '  rwdString{rwd}]);
+    xlabel('left benson'); ylabel('right benson');
+    axis square
+end
+% correlations of trial STD amplitudes between bins, between hemispheres
+for rwd=1:2
+    subplot(rows,cols,rwd+3*cols);
+    imagesc(squeeze(mean(subHemiBinCorrStd(:,rwd,:,:))));
+    title(['std amplitude,  '  rwdString{rwd}]);
+    xlabel('left benson'); ylabel('right benson');
+    axis square
+end
+for isubplot=1:rows*cols
+   subplot(rows,cols,isubplot)
+   caxis([-1 1]);
+   colormap jet
+end
+
+
+set(gcf,'position',[450 150 400 	900]);
+ 
+ 
+ 

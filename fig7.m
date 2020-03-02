@@ -6,13 +6,16 @@ ConcatProj = 1;
 curFolder = pwd;
 dataFolder = '/Volumes/MH02086153MACDT-Drobo/allMinSubjects_concatenated/';
 subFolders = {'000520180116', '0008i20180213', '0016i20180207', '002220171212', '003220180105', '0034i20180209', '003520180328', '004020180328','004120180320', '0042i20180412', '0045i20180309', '0046i20180409', '0049i20180404', '005220180621'};
-
+ dsSurfaceContrast = 1;
+dsSurfaceAlpha = 0.15;
 nperms=10000;
 onlyCorrectString = '';
 if onlyCorrect==1
     onlyCorrectString = '_correct';
 elseif onlyCorrect==2
     onlyCorrectString = '_incorrect';
+elseif onlyCorrect==0
+    onlyCorrectString = '_validresponse';
 end
 zScoreString = '';
 if toZscore
@@ -46,6 +49,7 @@ plotColors = {[1 0 0], [0 0 1], [0 1 0], [0.5 1 0.2]};
 plotStyles = {'-','--',':','-.','-','--',':','-.'};
 linewidth = 1;
 markersize=10;
+fontsize=9;
 % ROIs = 1:length(roiNames)-1;
 ROIs = 1:length(roiNames);
 ROIs = [1:4];
@@ -278,8 +282,7 @@ medianOfTrialsStd = subMedianStd(:,iRoi,:);
 iRoi=2;
  i=i+1; figure; clf
  TR=1.5;
- dsSurfaceContrast = 0.5;
-dsSurfaceAlpha = 0.3;
+
  for rwd=1:2
      runFFT = squeeze(mean(runMeanFFT(:,iRoi,rwd,:)));
      runFFTstd = squeeze(std(runMeanFFT(:,iRoi,rwd,:)));
@@ -323,8 +326,7 @@ subTimepointStdDiff = squeeze(subTimepointStd(:,:,1,:) - subTimepointStd(:,:,2,:
 
 %%
 iRoi=2;
-dsSurfaceContrast = 0.5;
-dsSurfaceAlpha = 0.3;
+
 
 
 groupMeanVar = squeeze(mean(subTimepointStd(:,iRoi,:,:)));
@@ -335,7 +337,7 @@ meanVarDiff = mean(subVarDiff);
 stdVarDiff = std(subVarDiff);
 i=i+1; figure; clf
 subplots = {1:3, 4:6, 7 , 9};
-rows=1;
+rows=2;
 cols = 9;
 subplot(rows,cols,subplots{1})
 for rwd=1:2
@@ -353,15 +355,16 @@ for isubplot=1:2
     subplot(rows,cols,subplots{isubplot});
     xlabel('time (sec)');
     if isubplot==1
-        ylabel('mean variability (std)');
+        ylabel('timepoint variability (std)');
     else
-        ylabel('\Delta mean variability (std)');
+        ylabel('\Delta timepoint variability (std)');
     end
-    drawPublishAxis('xLabelOffset', -6/64,'yLabelOffset', -12/64, 'xAxisMargin', 4/64, 'yAxisMargin', 0/64,'xAxisMinMaxSetByTicks',0,...
-        'labelFontSize',7);
+    drawPublishAxis('xLabelOffset', -8/64,'yLabelOffset', -18/64, 'xAxisMargin', 6/64, 'yAxisMargin', 0/64,'xAxisMinMaxSetByTicks',0,...
+        'labelFontSize',fontsize);
     axis square
 end
-set(gcf,'position',[10 10 25 	6]);
+% set(gcf,'position',[10 10 25 	6]);
+set(gcf,'position',[10 10 25 	14]);
 % set(gcf,'position',[10 10 40 2*10]);
 print('-painters','-dpdf',['~/Documents/MATLAB/min/figures/fig7_' ConcatProjStr '.pdf']);
 %%

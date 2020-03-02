@@ -1,11 +1,13 @@
 close all; clear all;
 saveFolder = '/Volumes/MH02086153MACDT-Drobo/allMinBehavioral/';
-onlyCorrect=0;%1=correct,2=incorrect,0=all (with response)
+onlyCorrect=0;%1=correct,2=incorrect,0=all trials with response, 4=all trials.
 onlyCorrectString = '';
 if onlyCorrect==1
     onlyCorrectString = '_correct';
 elseif onlyCorrect==2
     onlyCorrectString = '_incorrect';
+elseif onlyCorrect==0
+    onlyCorrectString = '_validresponse';
 end
 tic
 load([saveFolder 'behavioralData' onlyCorrectString '.mat'], 'subFolders', 'subPupil', 'runSize', 'rwdPupil',...
@@ -16,7 +18,7 @@ load([saveFolder 'behavioralData' onlyCorrectString '.mat'], 'subFolders', 'subP
 subThresh = mean(subMeanThresh,2);%mean over rwd, which is already averaged over staircases and runs
 mean(subThresh)
 std(subThresh)
-keyboard
+
 %%
 
 plotColors = { [0 0 1],[1 0 0],[0 1 0], [0.5 1 0.2]};
@@ -24,13 +26,14 @@ plotStyles = {'-','--',':','-.','-','--',':','-.'};
 linewidth = 1;
 goodSubs = 1:length(subFolders);
 minLength=3000;
-nperms=1000;
+nperms=10000;
 baseT = 50;
 %%
 clear permSubMeanTC
 for iSub = 1:length(subFolders)%length(subdirs)
     for rwd=1:2
         numTrials(iSub,rwd) = size(rwdPupil{iSub,rwd},1);%the saved numTrials is for all trials, including those with no response
+        subPropCorrect(iSub,rwd) = sum(trialCorrectness{iSub,rwd}(:))/length(trialCorrectness{iSub,rwd}(:));
     end
     
     trialsPerRun(iSub) = size(subPupil{iSub,1},1);
@@ -57,9 +60,10 @@ for iSub = 1:length(subFolders)%length(subdirs)
                 %RT variability
                 permRT = subRT(randOrder(firstTrial(rwd):firstTrial(rwd)+numTrials(iSub,rwd)-1),:);
                 permSubRTvar(iSub,rwd,p) = std(permRT);
+                permSubRT(iSub,rwd,p) = mean(permRT);
                 
                 
-                keyboard
+
                 %FFT
                 f = fft(permTrials,[],2);
                 ph = angle(f(:,2));
@@ -87,6 +91,7 @@ for iSub = 1:length(subFolders)%length(subdirs)
        realSubVar(iSub,rwd) = nanmean(realSubVarTC);
        
        realSubRTvar(iSub,rwd) = std(trialRT{iSub,rwd});
+       realSubRT(iSub,rwd) = mean(trialRT{iSub,rwd});
        
        pval_corr_sub(iSub,rwd) = sum(permSubCorr(iSub,rwd,:) > realSubCorr(iSub,rwd))/nperms;
     end
@@ -170,6 +175,16 @@ realRTvarDiff = realRTvar(2) - realRTvar(1);
 pVal_RTvar = sum(permRTvarDiff >= realRTvarDiff)/nperms;
 
 pVal_RTvar
+
+
+
+permRT = squeeze(mean(permSubRT));
+permRTdiff = permRT(2,:)-permRT(1,:);
+realRT = mean(realSubRT);
+realRTdiff = realRT(2) - realRT(1);
+pVal_RT = sum(permRTdiff >= realRTdiff)/nperms;
+
+pVal_RT
 %%
 
 % goodSubs = [1:4 6:13];

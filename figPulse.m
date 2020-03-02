@@ -2,12 +2,8 @@ close all
 mrQuit
 clear all
 dataFolder = '/Volumes/MH02086153MACDT-Drobo/allMinSubjects_concatenated/';
-ConcatProj=0;
-ConcatProjStr = '';
-if ConcatProj
-    ConcatProjStr = 'ConcatProj';
-end
-load([dataFolder 'rwd_physioRegress_eccen' ConcatProjStr '.mat'], 'dataFolder', 'subFolders', 'numSubs','roiNames', ...
+
+load([dataFolder 'rwd_physioRegress_eccen.mat'], 'dataFolder', 'subFolders', 'numSubs','roiNames', ...
     'numRuns','numTRs','concatInfo',...
     'trialsPerRun','trialLength','junkedFrames','TR',...
     'ecgselect','ecgSampleRate','ecgTrial','ecgRunLength','ecgInterpMethod',...
@@ -73,52 +69,54 @@ title(['mean pulse']);
 
 
 %%
-i=i+1; figure(i); clf
+% i=i+1; figure(i); clf
+% 
+% for ibin=1:nbins
+%     subplot(rows,cols,ibin)
+%     for rwd=1:2
+%         for iSub=1:length(subFolders)
+%             meanRoiTrial(iSub,ibin,rwd,:) = mean(subBinTrialResponse{iSub,ibin,rwd},2);
+%         end
+%         hold on
+%         plot(squeeze(mean(meanRoiTrial(:,ibin,rwd,:))),'color',plotColors{rwd},'linewidth', linewidth);
+% %         plot(,'color',plotColors{rwd},'linewidth', 3);
+%     end
+%     
+% end
+% title(['original trial']);
 
-for ibin=1:nbins
-    subplot(rows,cols,ibin)
-    for rwd=1:2
-        for iSub=1:length(subFolders)
-            meanRoiTrial(iSub,ibin,rwd,:) = mean(subBinTrialResponse{iSub,ibin,rwd},2);
-        end
-        hold on
-        plot(squeeze(mean(meanRoiTrial(:,ibin,rwd,:))),'color',plotColors{rwd},'linewidth', linewidth);
-%         plot(,'color',plotColors{rwd},'linewidth', 3);
-    end
-    
-end
-title(['original trial']);
 %%
-i=i+1; figure(i); clf
+% i=i+1; figure(i); clf
+% 
+% for ibin=1:nbins
+%     subplot(rows,cols,ibin)
+%     for rwd=1:2
+%         for iSub=1:length(subFolders)
+%             meanBinTrialRegressPulse(iSub,ibin,rwd,:) = mean(reshape(pulseResidualTC{iSub,ibin,rwd},trialLength,[]),2);
+%         end
+%         hold on
+%         plot(squeeze(mean(meanBinTrialRegressPulse(:,ibin,rwd,:))),'color',plotColors{rwd},'linewidth', 3);
+%     end
+%     
+% end
+% title(['post pulse regression']);
 
-for ibin=1:nbins
-    subplot(rows,cols,ibin)
-    for rwd=1:2
-        for iSub=1:length(subFolders)
-            meanBinTrialRegressPulse(iSub,ibin,rwd,:) = mean(reshape(pulseResidualTC{iSub,ibin,rwd},trialLength,[]),2);
-        end
-        hold on
-        plot(squeeze(mean(meanBinTrialRegressPulse(:,ibin,rwd,:))),'color',plotColors{rwd},'linewidth', 3);
-    end
-    
-end
-title(['post pulse regression']);
 %%
-i=i+1; figure(i); clf
-
-for ibin=1:nbins
-    subplot(rows,cols,ibin)
-    for rwd=1:2
-        for iSub=1:length(subFolders)
-            pulseRegressedTC{iSub,rwd}(ibin,:) = squeeze(pulseKernel(iSub,ibin,rwd,:))'*designMatPulse{iSub,rwd};
-            pulseRegressedTrial(iSub,ibin,rwd,:) = mean(reshape(pulseRegressedTC{iSub,rwd}(ibin,:),trialLength,[]),2);
-        end
-        hold on
-        plot(squeeze(mean(pulseRegressedTrial(:,ibin,rwd,:))),'color',plotColors{rwd},'linewidth', linewidth);
-    end
-    
-end
-title(['regressed out']);
+% i=i+1; figure(i); clf
+% 
+% for ibin=1:nbins
+%     subplot(rows,cols,ibin)
+%     for rwd=1:2
+%         for iSub=1:length(subFolders)
+%             pulseRegressedTC{iSub,rwd}(ibin,:) = squeeze(pulseKernel(iSub,ibin,rwd,:))'*designMatPulse{iSub,rwd};
+%             pulseRegressedTrial(iSub,ibin,rwd,:) = mean(reshape(pulseRegressedTC{iSub,rwd}(ibin,:),trialLength,[]),2);
+%         end
+%         hold on
+%         plot(squeeze(mean(pulseRegressedTrial(:,ibin,rwd,:))),'color',plotColors{rwd},'linewidth', linewidth);
+%     end
+%     
+% end
+% title(['regressed out']);
 
 %%
 i=i+1; figure(i); clf
@@ -141,3 +139,34 @@ end
     print('-painters','-dpdf',['~/Documents/MATLAB/min/figures/physio_pulseAmpEcc.pdf']);
 %%
 % squeeze(pulseKernel(iSub,iRoi,rwd,:))'*designMatPulse{iSub,rwd};
+
+
+%%
+% i=i+1; figure(i); clf
+% load(fullfile(dataFolder,'subColors.mat'),'subColor', 'scatterCmap', 'colorSubFolders', 'colorGoodSubs');
+% 
+% subjects = size(meanPulseKernelStd,1);
+% rewards = size(meanPulseKernelStd,2);
+% [rwdNum, subNum] = meshgrid(1:rewards, 1:subjects);
+% %     scatterCmap = scatterCmap(end:-1:1,:);%invert color map
+% colormap(scatterCmap);
+% 
+% % RT
+% l = size(scatterCmap,1);
+% for iSub=1:length(subFolders)
+%     %find the correct color
+%     for j=1:length(colorGoodSubs)
+%         if strcmp(subFolders{iSub},colorSubFolders{colorGoodSubs(j)})
+%            newSubColor(iSub,:) = subColor(j,:);
+%         end
+%     end
+% %     subColor(iSub,:) = scatterCmap(1+floor((smallSubDiff(iSub) - minSubDiff)*(l-1)/(maxSubDiff-minSubDiff)),:);
+%     plot(1:rewards,meanPulseKernelStd(iSub,:),'Color',newSubColor(iSub,:),'linewidth',linewidth);
+%     hold on
+% end
+% scatter(rwdNum(:),meanPulseKernelStd(:),markerSize, [newSubColor; newSubColor] ,'filled');
+% % MEAN
+% for i=1:rewards
+%     scatter(iSub,mean(meanPulseKernelStd(:,iSub)),markerSize*4,[0 0 0],'filled');
+%     plot(1:rewards,mean(meanPulseKernelStd),'Color',[0 0 0],'linewidth', 2*linewidth);
+% end

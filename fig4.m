@@ -4,14 +4,15 @@ regressGlobalMean = 0;
 ConcatProj = 1;
 curFolder = pwd;
 dataFolder = '/Volumes/MH02086153MACDT-Drobo/allMinSubjects_concatenated/';
-subFolders = {'000520180116', '0008i20180213', '0016i20180207', '002220171212', '003220180105', '0034i20180209', '003520180328', '004020180328','004120180320', '0042i20180412', '0045i20180309', '0046i20180409', '0049i20180404', '005220180621'};
+% subFolders = {'000520180116', '0008i20180213', '0016i20180207', '002220171212', '003220180105', '0034i20180209', '003520180328', '004020180328','004120180320', '0042i20180412', '0045i20180309', '0046i20180409', '0049i20180404', '005220180621'};
 TR=1.5;
-nperms=100;
 onlyCorrectString = '';
 if onlyCorrect==1
     onlyCorrectString = '_correct';
 elseif onlyCorrect==2
     onlyCorrectString = '_incorrect';
+elseif onlyCorrect==0
+    onlyCorrectString = '_validresponse';
 end
 zScoreString = '';
 fmriUnits = '% change image intensity';
@@ -33,7 +34,11 @@ load([dataFolder 'rwdTC_concat' onlyCorrectString zScoreString globalMeanString 
     'expName','stairThresh','eccen','ang','areas','trialLength',...
     'subMeanCorrectness', 'subMeanRT','subMedianRT','subMeanThresh',...
     'subMeanRunTC','subStdRunTC','subStd','subRoiRuns',...
-    'globalMean','regressBetasGlobal','runRwd');
+    'globalMean','regressBetasGlobal','runRwd',...
+    'subRoiRuns','runMeanFFT',...
+    'allVoxTrialResponse','allVoxTaskPhase','allVoxTaskAmp','allVoxTaskCo',...
+    'voxTrials','voxGoodTrials','meanVoxTrial',...
+    'maxRT');
 
 % trialLength=10;
 clear subMeanResponse trialStd meanTrialStd runStd meanRunStd subRwdStd trialFFTamp trialFFTphase meanTrialFFTamp meanTrialFFTphase 
@@ -110,7 +115,8 @@ for isubplot=1:rows*cols
    title(['S' num2str(isubplot)]);
    xlabel('time (sec)');
    if mod(isubplot,cols)==1
-       ylabel(['BOLD signal (' fmriUnits ')']);
+       t = {'BOLD signal'; ['(' fmriUnits ')'] };
+       ylabel(t);
    end
    axis square
 
@@ -118,8 +124,9 @@ for isubplot=1:rows*cols
         drawPublishAxis('xLabelOffset', -9/64,'yLabelOffset', -18/64, 'xAxisMargin', 2/64, 'yAxisMargin', 0/64,'xAxisMinMaxSetByTicks',0,...
        'labelFontSize',7);
 end
-set(gcf,'position',[10 10 21.8 15]);
+set(gcf,'position',[10 10 21 15]);
 
-print('-painters','-dpdf','~/Documents/MATLAB/min/figures/fig4_allSubjects.pdf');
+
+print('-painters','-dpdf',['~/Documents/MATLAB/min/figures/fig4_' roiNames{iRoi} '_' ConcatProjStr '.pdf']);
 % print('-painters','-dpdf','~/Documents/MATLAB/min/figures/fig4_allSubjects_rightDMN.pdf');
 

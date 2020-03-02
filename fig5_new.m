@@ -78,24 +78,6 @@ goodSubs = 1:length(subFolders);
 goodSubs = [1:3 5:length(subFolders)]; %excluding subject 22
 % subjects. 0.0457  0.0140,     0.0553    0.0214
 
-for iSub = goodSubs%length(subdirs)
-%     iSub = goodSubs(i)
-     for iRoi=1:length(roiNames)
-        for rwd=1:2
-            reshapedTrials = reshape(subTrialResponse{iSub,iRoi,rwd},10,[]);
-            if iSub==goodSubs(1)
-                allTrials{iRoi,rwd} = reshapedTrials;
-            else
-                allTrials{iRoi,rwd} = [allTrials{iRoi,rwd} reshapedTrials];
-            end
-        end
-     end
-end
-
-
-
-
-
 %% bin voxels within each ROI according to eccentricity, then average within bins
 %bins by log eccentricity
 eccMin = 0.2;
@@ -239,160 +221,11 @@ rows=2;
 cols = 9;
 subplots = {1:3, 4:6, 7 , 9, cols+1:cols+3, cols+4:cols+6, cols+7 , cols+9};
 
-for r= 1:length(ROIs)
-    i=i+1; figure(i); clf; 
-    %amplitude
-    subplot(rows,cols,subplots{1});
-    iRoi=ROIs(r);
-    for rwd=1:2
-        dsErrorsurface(binCenters, squeeze(binMeanAmp(iRoi,:,rwd)), squeeze(binStdAmp(iRoi,:,rwd))./sqrt(size(subBinAmp,1)), dsSurfaceContrast*plotColors{rwd},dsSurfaceAlpha);
-        hold on
-    end
-    for rwd=1:2
-        plot(binCenters, squeeze(binMeanAmp(iRoi,:,rwd)),'.','Color', plotColors{rwd},'linewidth',linewidth,'markersize',markersize);
-    end
-    subplot(rows,cols,subplots{2});
-    dsErrorsurface(binCenters, binMeanDiff(iRoi,:), binStdDiff(iRoi,:)./sqrt(size(subBinAmp,1)), [0 0 0],dsSurfaceAlpha);
-    hold on
-    plot(binCenters, squeeze(binMeanAmp(iRoi,:,1) -binMeanAmp(iRoi,:,2)),'k.','linewidth',linewidth,'markersize',markersize);
-    hline(0);
-    
-    %latency
-%     binMeanPh = mod(binMeanPh,2*pi);
-    binMeanPh = binMeanPh - pi/2;
-    binMeanPh = mod((binMeanPh + pi),2*pi)-pi;
-    subplot(rows,cols,cols+subplots{1});
-    iRoi=ROIs(r);
-    for rwd=1:2
-        dsErrorsurface(binCenters, squeeze(binMeanPh(iRoi,:,rwd)), squeeze(binStdPh(iRoi,:,rwd))./sqrt(size(subBinAmp,1)), dsSurfaceContrast*plotColors{rwd},dsSurfaceAlpha);
-        hold on
-    end
-    for rwd=1:2
-        plot(binCenters, squeeze(binMeanPh(iRoi,:,rwd)),'.','Color', plotColors{rwd},'linewidth',linewidth,'markersize',markersize);
-    end
-    subplot(rows,cols,cols+subplots{2});
-    dsErrorsurface(binCenters, binMeanPhDiff(iRoi,:), binStdPhDiff(iRoi,:)./sqrt(size(subBinAmp,1)), [0 0 0],dsSurfaceAlpha);
-    hold on
-    plot(binCenters, binMeanPhDiff(iRoi,:),'k.','linewidth',linewidth,'markersize',markersize);
-    hline(0);
-    
-end
-
 %% bar plot of subjects' amplitudes
 lineLength = 0.2;
 lineWidth = 2;
 markerSize = 10;
 
-for r = 1:length(ROIs)
-    figure(r);
-    subplot(rows,cols,subplots{3})
-    iROI = ROIs(r);
-    clear smallSubAmp subPh
-    for iSub=1:length(goodSubs)
-        for rwd=1:2
-            smallSubAmp(iSub,rwd) = std(squeeze(subResponse(goodSubs(iSub),iRoi,rwd,:)));
-            f=angle(fft(squeeze(subResponse(goodSubs(iSub),iRoi,rwd,:))));
-            subPh(iSub,rwd) = f(2);
-        end
-    end
-    smallSubDiff = smallSubAmp(:,1) - smallSubAmp(:,2);
-    minSubDiff = min(smallSubDiff);
-    maxSubDiff= max(smallSubDiff);
-    subjects = size(smallSubAmp,1);
-    rewards = size(smallSubAmp,2);
-    [rwdNum, subNum] = meshgrid(1:rewards, 1:subjects);
-    scatterCmap=cool;
-%     scatterCmap = scatterCmap(end:-1:1,:);%invert color map
-    colormap(scatterCmap);
-
-    l = size(scatterCmap,1);
-    for iSub=1:length(goodSubs)
-        subColor(iSub,:) = scatterCmap(1+floor((smallSubDiff(iSub) - minSubDiff)*(l-1)/(maxSubDiff-minSubDiff)),:);
-        plot(1:rewards,smallSubAmp(iSub,:),'Color',subColor(iSub,:),'linewidth',linewidth);
-        hold on
-    end
-    scatter(rwdNum(:),smallSubAmp(:),markerSize, [subColor; subColor] ,'filled');   
-    % MEAN
-    for iRwd=1:rewards
-        scatter(iRwd,mean(smallSubAmp(:,iRwd)),markerSize*4,[0 0 0],'filled');
-        plot(1:rewards,mean(smallSubAmp),'Color',[0 0 0],'linewidth', 2*linewidth);
-    end
-end
-
-%% bar plot of subjects' latency
-
-for r = 1:length(ROIs)
-    figure(r);
-    subplot(rows,cols,subplots{3+4})
-    iROI = ROIs(r);
-    subPhDiff = circ_dist(subPh(:,:),subPh(:,1));
-    colormap(scatterCmap);
-    for iSub=1:length(goodSubs)
-        plot(1:rewards,subPhDiff(iSub,:),'Color',subColor(iSub,:),'linewidth',linewidth);
-        hold on
-    end
-    scatter(rwdNum(:),subPhDiff(:),markerSize, [subColor; subColor] ,'filled');   
-    % MEAN
-    for iRwd=1:rewards
-        scatter(iRwd,mean(subPhDiff(:,iRwd)),markerSize*4,[0 0 0],'filled');
-        plot(1:rewards,mean(subPhDiff),'Color',[0 0 0],'linewidth', 2*linewidth);
-    end
-%     ylim([-pi pi]);
-end
-
-%% Formatting
-for r = 1:length(ROIs)
-    figure(r);
-    for isubplot=[1:3 5:7]%1:length(subplots)
-        subplot(rows,cols,subplots{isubplot});
-        switch isubplot
-            case 1
-                ylabel('response amplitude (std)');
-            case 2
-                ylabel('\Delta response amplitude (std)');
-            case 3
-                ylabel('response amplitude (std)');
-            case 5
-                ylabel('response timing (rad)');
-            case 6
-                ylabel('\Delta response timing (rad)');
-            case 7
-                ylabel('relative response latency (rad)');
-        end
-        
-        if isubplot==3
-            xlabel('reward');
-            drawPublishAxis('xLabelOffset', -8/64,'yLabelOffset', -80/64, 'xAxisMargin', 4/64, 'yAxisMargin', 0/64,'xAxisMinMaxSetByTicks',1,...
-                'xTick',[1 2], 'xTickLabel', {'high','low'},...
-                'xAxisMin', 1 ,'xAxisMax', 2,'yAxisOffset',-0.5,'labelFontSize',fontsize,...
-                'yAxisMajorTickLen',-4/32);
-        elseif isubplot==7
-            xlabel('reward');
-            drawPublishAxis('xLabelOffset', -8/64,'yLabelOffset', -80/64, 'xAxisMargin', 4/64, 'yAxisMargin', 0/64,'xAxisMinMaxSetByTicks',1,...
-                'xTick',[1 2], 'xTickLabel', {'high','low'},...
-                'yTick',[-pi 0 pi], 'yTickLabel', {'-\pi','0','\pi'},...
-                'xAxisMin', 1 ,'xAxisMax', 2,'yAxisOffset',-0.5,'labelFontSize',fontsize,...
-                'yAxisMajorTickLen',-4/32);
-        elseif isubplot==5
-            xlabel('eccentricity (deg)');
-            drawPublishAxis('xLabelOffset', -8/64,'yLabelOffset', -16/64, 'xAxisMargin', 4/64, 'yAxisMargin', 0/64,'xAxisMinMaxSetByTicks',1,...
-                'yTick',[-pi 0 pi], 'yTickLabel', {'-\pi','0','\pi'},...
-                'labelFontSize',fontsize);
-            axis square
-        else
-            
-            xlabel('eccentricity (deg)');
-            drawPublishAxis('xLabelOffset', -8/64,'yLabelOffset', -16/64, 'xAxisMargin', 4/64, 'yAxisMargin', 0/64,'xAxisMinMaxSetByTicks',1,...
-                'labelFontSize',fontsize);
-            axis square
-        end
-    end
-    set(gcf,'position',[10 10 28 	14]);
-end
-% set(gcf,'position',[10 10 25 	12]);
-
-% set(gcf,'position',[10 10 40 2*10]);
-print('-painters','-dpdf',['~/Documents/MATLAB/min/figures/fig5_' ConcatProjStr '.pdf']);
 
 
 
@@ -411,35 +244,141 @@ for r = 1:length(ROIs)
     
     % timepoint variability
     subplot(rows,cols,subplots{1});
-    for rwd=1:2
-        dsErrorsurface(binCenters, squeeze(binVarMean(iRoi,:,rwd)), squeeze(binVarStd(iRoi,:,rwd))./sqrt(size(subBinAmp,1)), dsSurfaceContrast*plotColors{rwd},dsSurfaceAlpha);
+%     for rwd=1:2
+%         dsErrorsurface(binCenters, squeeze(binVarMean(iRoi,:,rwd)), squeeze(binVarStd(iRoi,:,rwd))./sqrt(size(subBinAmp,1)), dsSurfaceContrast*plotColors{rwd},dsSurfaceAlpha);
+%         hold on
+%     end
+%     for rwd=1:2
+%         plot(binCenters, squeeze(binVarMean(iRoi,:,rwd)),'.','Color', plotColors{rwd},'linewidth',linewidth,'markersize',markersize);
+%     end
+%     ylabel('mean variability (std)');
+    
+    %%
+    %set canonical HRF
+    upsampleFactor = 10;
+    TR = 1.5;
+    modelParams = struct;
+    sampleDuration = TR/upsampleFactor;
+    sampleDelay=sampleDuration/2;
+    defaultParams=1;
+%     modelParams.x = 6;%9;
+%     modelParams.y = 16;
+%     modelParams.z = 6;
+%      modelParams.x = 12;
+%     modelParams.y = 16;
+%     modelParams.z = 6;
+
+    modelParams.x = 6;%9;
+modelParams.y = 12;
+modelParams.z = 100;
+
+    [modelParams hrfModel] = hrfDoubleGamma(modelParams,sampleDuration,sampleDelay,defaultParams);
+    T=200;
+    initT=1;
+    simResp = hrfModel(initT:initT+T-1);
+    linewidth = 1;
+    linecolor = 0.6*[1 1 1];
+%     tickcolor = 0.2*[1 1 1];
+    tickcolor = 0.6*[0.0 1 0.9];
+    nCurves = 5;
+    minAmp=0.4;
+    amplitudes = linspace(minAmp, 0.9,nCurves);
+    minDelay = 0;
+    maxDelay = 0.1;
+    delays = linspace(minDelay,maxDelay,nCurves);
+%     delays = delays(randperm(length(delays)));
+    delays = delays([2 4 1 5 3]);
+%     amplitudes = [1 0.8 0.6];
+%     delays = [0 0.3 0.6];
+    clear curves
+    for icurve = 1:nCurves
+       curves(icurve,:) = amplitudes(icurve) *  circshift(simResp, ceil(delays(icurve)*T));
+    end
+    
+    [maxAmp maxT] = max(curves');
+    Tscale = 1/50;
+    ampScale = 1/25;
+%     horizX = [(T*Tscale)*ones(size(maxT)); (T*Tscale)*ones(size(maxT)) + T*Tscale];
+    horizX = [zeros(size(maxT)); T*Tscale*ones(size(maxT))];
+    horizXlong = [zeros(size(maxT));  maxT];
+    horizY = repmat(maxAmp,[2 1]);
+
+
+    vertX = repmat(maxT, [2 1]);
+    temp1 = (-max(maxAmp)*ampScale)*ones(size(maxT));
+    temp2 = (-max(maxAmp)*ampScale)*ones(size(maxT)) -max(maxAmp)*ampScale;
+    vertY = [zeros(size(maxT)); max(maxAmp)*ampScale*ones(size(maxT))];
+    vertYlong = [zeros(size(maxT)); maxAmp];
+    
+    N = 15;
+
+    vertXrand = (maxDelay-minDelay)*0.3*T*repmat(randn(1,N), [2 1]) + mean(maxT);
+    temp1 = (-max(maxAmp)*ampScale)*ones(1,N);
+    temp2 = (-max(maxAmp)*ampScale)*ones(1,N) -max(maxAmp)*ampScale;
+    vertYrand = [zeros(1,N); max(maxAmp)*ampScale*ones(1,N)];
+    
+    horizXrand = [zeros(1,N); (T*Tscale)*ones(1,N)];
+    horizYrand = minAmp*0.3*max(maxAmp)*repmat(randn(1,N), [2 1]) + mean(maxAmp);
+    xmin = 0;
+    xmax = (maxDelay+0.4)*T;
+    xmax = 1+ceil(1+ xmax/(trialLength-1))*(trialLength-1);
+    for irow=1:3
+        subplot(rows,cols,(irow-1)*cols+subplots{1});
+        cla
+        plot(curves','Color',linecolor,'linewidth',linewidth);
         hold on
+        %     line(horizX,horizY,'color',0.2*[1 1 1],'linewidth',linewidth);
+        %     line(horizXlong,horizY,'linestyle','--','color',0.2*[1 1 1],'linewidth',linewidth/3);
+        
+%         xlim([(minDelay+0.1)*T (maxDelay+0.3)*T]);
+
     end
-    for rwd=1:2
-        plot(binCenters, squeeze(binVarMean(iRoi,:,rwd)),'.','Color', plotColors{rwd},'linewidth',linewidth,'markersize',markersize);
-    end
-    ylabel('mean variability (std)');
+    
+    subplot(rows,cols,subplots{1});
+    meanCurves = mean(curves);
+    stdCurves = std(curves);
+    stdXvals = linspace(xmin+1,xmax,trialLength);
+    errorbar(stdXvals, meanCurves(stdXvals), stdCurves(stdXvals),'color',tickcolor,'linewidth',linewidth,'linestyle',':'); 
+    
+    subplot(rows,cols,cols+subplots{1});
+    line(horizXrand,horizYrand,'linestyle','-','color',tickcolor,'linewidth',linewidth*2);
+    line(horizXlong,horizY,'linestyle',':','color',tickcolor,'linewidth',linewidth);
+    line(horizX,horizY,'color',tickcolor,'linewidth',linewidth*2);
+    subplot(rows,cols,2*cols+subplots{1});
+    line(vertXrand,vertYrand,'linestyle','-','color',tickcolor,'linewidth',linewidth*2);
+    line(vertX,vertYlong,'linestyle',':','color',tickcolor,'linewidth',linewidth);
+    line(vertX,vertY,'color',tickcolor,'linewidth',linewidth*2);
+
+
+    
+%     ylim([0 1.05*max(maxAmp)]);
+    %%
+    
+    
     subplot(rows,cols,subplots{2});
     dsErrorsurface(binCenters, binVarDiffMean(iRoi,:), binVarDiffStd(iRoi,:)./sqrt(size(subBinAmp,1)), [0 0 0],dsSurfaceAlpha);
     hold on
     plot(binCenters, binVarDiffMean(iRoi,:),'k.','linewidth',linewidth,'markersize',markersize);
-    ylabel('\Delta mean variability (std)');
-    hline(0);
-    % STD amplitude variability
-    subplot(rows,cols,cols+subplots{1});
-    for rwd=1:2
-        dsErrorsurface(binCenters, squeeze(binStdVarMean(iRoi,:,rwd)), squeeze(binStdVarStd(iRoi,:,rwd))./sqrt(size(subBinAmp,1)), dsSurfaceContrast*plotColors{rwd},dsSurfaceAlpha);
-        hold on
-    end
-    for rwd=1:2
-        plot(binCenters, squeeze(binStdVarMean(iRoi,:,rwd)),'.','Color', plotColors{rwd},'linewidth',linewidth,'markersize',markersize);
-    end
-    ylabel('amplitude variability (std)');
+%     ylabel('\Delta timepoint variability (std)');
+ylabel('high reward - low reward');
+hline(0);
+    
+%     % STD amplitude variability
+%     subplot(rows,cols,cols+subplots{1});
+%     for rwd=1:2
+%         dsErrorsurface(binCenters, squeeze(binStdVarMean(iRoi,:,rwd)), squeeze(binStdVarStd(iRoi,:,rwd))./sqrt(size(subBinAmp,1)), dsSurfaceContrast*plotColors{rwd},dsSurfaceAlpha);
+%         hold on
+%     end
+%     for rwd=1:2
+%         plot(binCenters, squeeze(binStdVarMean(iRoi,:,rwd)),'.','Color', plotColors{rwd},'linewidth',linewidth,'markersize',markersize);
+%     end
+%     ylabel('amplitude variability (std)');
     subplot(rows,cols,cols+subplots{2});
     dsErrorsurface(binCenters, binStdVarDiffMean(iRoi,:), binStdVarDiffStd(iRoi,:)./sqrt(size(subBinAmp,1)), [0 0 0],dsSurfaceAlpha);
     hold on
     plot(binCenters, binStdVarDiffMean(iRoi,:),'k.','linewidth',linewidth,'markersize',markersize);
-    ylabel('\Delta amplitude variability (std)');
+%     ylabel('\Delta amplitude variability (std)');
+ylabel('high reward - low reward');
     hline(0);
     % FFT amplitude variability
     % subplot(rows,cols,cols+subplots{1});
@@ -458,20 +397,21 @@ for r = 1:length(ROIs)
     
     % FFT phase variability
     
-    subplot(rows,cols,2*cols+subplots{1});
-    for rwd=1:2
-        dsErrorsurface(binCenters, squeeze(binFftPhVarMean(iRoi,:,rwd)), squeeze(binFftPhVarStd(iRoi,:,rwd))./sqrt(size(subBinAmp,1)), dsSurfaceContrast*plotColors{rwd},dsSurfaceAlpha);
-        hold on
-    end
-    for rwd=1:2
-        plot(binCenters, squeeze(binFftPhVarMean(iRoi,:,rwd)),'.','Color', plotColors{rwd},'linewidth',linewidth,'markersize',markersize);
-    end
-    ylabel('temporal variability (std)');
+%     subplot(rows,cols,2*cols+subplots{1});
+%     for rwd=1:2
+%         dsErrorsurface(binCenters, squeeze(binFftPhVarMean(iRoi,:,rwd)), squeeze(binFftPhVarStd(iRoi,:,rwd))./sqrt(size(subBinAmp,1)), dsSurfaceContrast*plotColors{rwd},dsSurfaceAlpha);
+%         hold on
+%     end
+%     for rwd=1:2
+%         plot(binCenters, squeeze(binFftPhVarMean(iRoi,:,rwd)),'.','Color', plotColors{rwd},'linewidth',linewidth,'markersize',markersize);
+%     end
+%     ylabel('temporal variability (std)');
     subplot(rows,cols,2*cols+subplots{2});
     dsErrorsurface(binCenters, binFftPhVarDiffMean(iRoi,:), binFftPhVarDiffStd(iRoi,:)./sqrt(size(subBinAmp,1)), [0 0 0],dsSurfaceAlpha);
     hold on
     plot(binCenters, binFftPhVarDiffMean(iRoi,:),'k.','linewidth',linewidth,'markersize',markersize);
-    ylabel('\Delta temporal variability (std)');
+%     ylabel('\Delta temporal variability (std)');
+ylabel('high reward - low reward');
     hline(0);
     
     
@@ -535,7 +475,7 @@ for r = 1:length(ROIs)
         scatter(iRwd,mean(subMeanVar(:,iRwd)),markerSize*4,[0 0 0],'filled');
         plot(1:rewards,mean(subMeanVar),'Color',[0 0 0],'linewidth', 2*linewidth);
     end
-    ylabel('mean variability (std)');
+    ylabel('timepoint variability (std)');
     
     % bar plot of subjects' STD Amplitude variability
     subplot(rows,cols,cols+subplots{3})
@@ -581,37 +521,50 @@ for r = 1:length(ROIs)
     
     
     
-    
+  %%  
     % formatting
     for r=1:rows
         for isubplot=1:length(subplots)-1
             subplot(rows,cols,(r-1)*cols+subplots{isubplot})
             %         ylabel('mean variability (std)');
+
             if isubplot<3
-                xlabel('eccentricity (deg)');
-                %             if isubplot==2
-                %                 ylabel('\Delta mean variability (std)');
-                %             else
-                %                 ylabel('mean variability (std)');
-                %             end
+                if isubplot==1
+                    
+                    
+%                     xlim([xmin xmax]);
+%                     ylim([0 max(maxAmp)]);
+                    yticklabel = {'0','1'};
+                    ytick = [0 max(maxAmp)*1.2];
+                    xticklabel = {'0','15'};
+                    xtick = [0 xmax];
+                    drawPublishAxis('xLabelOffset', -6/64,'yLabelOffset', -8/64, 'xAxisMargin', 4/64, 'yAxisMargin', 0/64,'xAxisMinMaxSetByTicks',1,...
+                    'labelFontSize',fontsize,'yTickLabel',yticklabel,'yTick',ytick,'xTickLabel',xticklabel,'xTick',xtick,...
+                    'yLabel','fMRI response','xLabel','time (sec)');
+%                     ylabel('fMRI response');
+%                     xlabel('time (sec)');
+                else
+%                     xlabel('eccentricity (deg)');
+                     drawPublishAxis('xLabelOffset', -6/64,'yLabelOffset', -12/64, 'xAxisMargin', 4/64, 'yAxisMargin', 0/64,'xAxisMinMaxSetByTicks',1,...
+                    'labelFontSize',fontsize,'xLabel','eccentricity (deg)');
+                    
+                end
                 
-                drawPublishAxis('xLabelOffset', -8/64,'yLabelOffset', -12/64, 'xAxisMargin', 4/64, 'yAxisMargin', 0/64,'xAxisMinMaxSetByTicks',1,...
-                    'labelFontSize',fontsize);
                 axis square
             else
-                xlabel('reward');
-                drawPublishAxis('xLabelOffset', -8/64,'yLabelOffset', -70/64, 'xAxisMargin', 4/64, 'yAxisMargin', 0/64,'xAxisMinMaxSetByTicks',1,...
+%                 xlabel('reward');
+                drawPublishAxis('xLabelOffset', -6/64,'yLabelOffset', -70/64, 'xAxisMargin', 4/64, 'yAxisMargin', 0/64,'xAxisMinMaxSetByTicks',1,...
                     'xTick',[1 2], 'xTickLabel', {'high','low'},...
                     'xAxisMin', 1 ,'xAxisMax', 2,'yAxisOffset',-0.5,'labelFontSize',fontsize,...
-                    'yAxisMajorTickLen',-4/32);
+                    'yAxisMajorTickLen',-4/32,'xLabel','reward');
             end
         end
     end
     
     
-    set(gcf,'position',[10 10 25 	24]);
+    set(gcf,'position',[10 10 26 	22]);
     
-    print('-painters','-dpdf',['~/Documents/MATLAB/min/figures/fig5_variability_' ConcatProjStr '.pdf']);
+    print('-painters','-dpdf',['~/Documents/MATLAB/min/figures/fig5_' ConcatProjStr '.pdf']);
 end
 
 colorSubFolders = subFolders;
@@ -619,10 +572,10 @@ colorGoodSubs = goodSubs;
 save(fullfile(dataFolder,'subColors.mat'),'subColor', 'scatterCmap', 'colorSubFolders', 'colorGoodSubs');
 %%
 
-[rmat pmat] = corr([smallSubDiff,subMeanVar(:,2)-subMeanVar(:,1),subBinFftAmpVar(:,2)-subBinFftAmpVar(:,1),...
-    subBinFftPhVar(:,2)-subBinFftPhVar(:,1), subStdMean(:,2)-subStdMean(:,1),subStdVar(:,2)-subStdVar(:,1)]);
-lbls = {'std amp','timepoint var','FFT amp var','FFT ph var','std amp mean','std amp var'};
-
-pmat
+% [rmat pmat] = corr([smallSubDiff,subMeanVar(:,2)-subMeanVar(:,1),subBinFftAmpVar(:,2)-subBinFftAmpVar(:,1),...
+%     subBinFftPhVar(:,2)-subBinFftPhVar(:,1), subStdMean(:,2)-subStdMean(:,1),subStdVar(:,2)-subStdVar(:,1)]);
+% lbls = {'std amp','timepoint var','FFT amp var','FFT ph var','std amp mean','std amp var'};
+% 
+% pmat
 
 

@@ -1,7 +1,9 @@
+close all
+clear all
 onlyCorrect=0;%1=correct,2=incorrect,0=all (with response)
 toZscore=1;%0 or 1
 regressGlobalMean = 0;
-ConcatProj = 1;
+ConcatProj = 0;
 curFolder = pwd;
 dataFolder = '/Volumes/MH02086153MACDT-Drobo/allMinSubjects_concatenated/';
 subFolders = {'000520180116', '0008i20180213', '0016i20180207', '002220171212', '003220180105', '0034i20180209', '003520180328', '004020180328','004120180320', '0042i20180412', '0045i20180309', '0046i20180409', '0049i20180404', '005220180621'};
@@ -12,16 +14,21 @@ if onlyCorrect==1
     onlyCorrectString = '_correct';
 elseif onlyCorrect==2
     onlyCorrectString = '_incorrect';
+elseif onlyCorrect==0
+    onlyCorrectString = '_validresponse';
 end
-zScoreString = '';
 fmriUnits = '% change image intensity';
+zScoreString = '';
 if toZscore
     zScoreString = '_zscored';
     fmriUnits = 'std image intensity';
 end
+
 globalMeanString = '';
-if regressGlobalMean
+if regressGlobalMean==1
     globalMeanString = '_globalRegressed';
+elseif regressGlobalMean==2
+    globalMeanString = '_bensonRegressed';
 end
 ConcatProjStr = '';
 if ConcatProj
@@ -50,7 +57,7 @@ markersize=10;
 % ROIs = 1:length(roiNames)-1;
 ROIs = 1:length(roiNames);
 ROIs = [1 2 9 10];
-ROIs = [1:4];
+ROIs = [1:6];
 dsSurfaceContrast = 0.5;
 dsSurfaceAlpha = 0.3;
 
@@ -77,7 +84,7 @@ end
 
 
 %%
-iRoi=4;
+iRoi=2;
 for iSub=1:length(subFolders)
     
     f(iSub,:)=fft(subMeanResponse(iSub,iRoi,:));
@@ -119,7 +126,7 @@ for j=1:3
 end
 set(gcf,'position',[10 10 25 6]);
 
-print('-painters','-dpdf','~/Documents/MATLAB/min/figures/fig4_fourierScatterPlot.pdf');
+print('-painters','-dpdf',['~/Documents/MATLAB/min/figures/fig4_fourierScatterPlot_' ConcatProjStr '.pdf']);
 
 %%
 
@@ -152,11 +159,11 @@ end
     
 set(gcf,'position',[10 10 25 6]);
 
-print('-painters','-dpdf','~/Documents/MATLAB/min/figures/fig4_fourierScatterPlot2.pdf');
+print('-painters','-dpdf',['~/Documents/MATLAB/min/figures/fig4_fourierScatterPlot2_' ConcatProjStr '.pdf']);
 
 %%
 i=i+1; figure(i); clf
-chosenROIs = [2 4];
+chosenROIs = [2 4 6];
 rows=1; cols=length(chosenROIs);
     j=1;%only mean across H and L
 for r = 1:length(chosenROIs)
@@ -193,4 +200,4 @@ for r = 1:length(chosenROIs)
 end
 set(gcf,'position',[10 10 25 6]);
 
-print('-painters','-dpdf','~/Documents/MATLAB/min/figures/fig4_fourierScatterPlot_bothROIs.pdf');
+print('-painters','-dpdf',['~/Documents/MATLAB/min/figures/fig4_fourierScatterPlot_bothROIs_' ConcatProjStr '.pdf']);

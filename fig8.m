@@ -1,5 +1,6 @@
 close all
 clear all
+toZscore=0;
 upsampleFactor = 10;
 TR = 1.5;
 %set canonical HRF
@@ -7,15 +8,20 @@ modelParams = struct;
 sampleDuration = TR/upsampleFactor;
 sampleDelay=sampleDuration/2;
 defaultParams=1;
-% params that make the variability timecourse similar to 
-modelParams.x = 6;%9;
-modelParams.y = 16;
-modelParams.z = 6;
-% params that make the variability timecourse similar to temporal jitter
-% modelParams.x = 12;
-% modelParams.y = 16;
-% modelParams.z = 6;
 
+hrfType=2;
+
+if hrfType==1
+    % params that make the variability timecourse similar to
+    modelParams.x = 6;%9;
+    modelParams.y = 16;
+    modelParams.z = 6;
+else
+    % params that make the variability timecourse similar to temporal jitter
+    modelParams.x = 12;
+    modelParams.y = 16;
+    modelParams.z = 6;
+end
 % % no negative dip
 % modelParams.x = 6;%9;
 % modelParams.y = 16;
@@ -91,7 +97,7 @@ end
 
 
 taskAmp = 1;%ones(numRwd,1);
-
+% taskAmp = 2;
 
 for isnr=1:length(snr)
     for ijitter = 1:length(jitter)
@@ -106,7 +112,8 @@ for isnr=1:length(snr)
                 
                 runTC(ceil(noisyTiming)) = ones;
 %                 runTC(ceil(noisyTiming)) = taskAmp*(1+atan(ampJitter(iampJitter)*randn(numTrials,1))./(pi/2));
-                runTC(ceil(noisyTiming)) = taskAmp*(1+atan(ampJitter(iampJitter)*randn(numTrials,1)));
+%                 runTC(ceil(noisyTiming)) = taskAmp*(1+atan(ampJitter(iampJitter)*randn(numTrials,1)));
+                runTC(ceil(noisyTiming)) = taskAmp*(1+tanh(ampJitter(iampJitter)*randn(numTrials,1)));
 
                 temp = conv(runTC,hrfModel);
 
@@ -116,7 +123,7 @@ for isnr=1:length(snr)
             end
             n = (taskAmp/snr(isnr))*randn(size(rwdSignal(isnr,ijitter,iampJitter,:,:)));
             
-            %HOW DO WE DO THIS WITHOUT ABS???
+            %WITHOUT ABS
             rwdNoise(isnr,ijitter,iampJitter,:,:) = ifft(repmat(oneOverF,1,1,1,1,runsPerRwd).*fft(n));
         end
     end
@@ -124,7 +131,10 @@ end
 
 %%
 rwdTC = rwdSignal + rwdNoise;
-rwdTC = zscore(rwdTC,0,4);
+rwdTC = rwdTC*upsampleFactor;
+if toZscore
+    rwdTC = zscore(rwdTC,0,4);
+end
 rwdTC = rwdTC(:,:,:,trialLength+1:end,:);%junk first cycle
 for isnr=1:length(snr)
     for ijitter = 1:length(jitter)
@@ -165,6 +175,11 @@ frequencies = frequencies(1:floor(nframes/2));
 trialsAmp = squeeze(std(rwdTrials,0,4));
 ampMeanTrial = std(meanTrial,0,4);
 
+fftMeanTrial = fft(meanTrial,[],4);
+f = fftMeanTrial(:,:,:,2);
+phMeanTrial = angle(f);
+
+
 meanTrialsAmp = mean(trialsAmp,4);
 stdTrialsAmp = std(trialsAmp,0,4);
 
@@ -175,7 +190,35 @@ ampVar = std(fftTrialAmp,0,4);
 totalVar = mean(std(rwdTrials,0,5),4);
 
 
-
+% %%
+% i=i+1; figure(i) ;clf
+% rows=1; cols=3;
+% 
+% subplot(rows,cols,1)%independent noise
+% plot(zscore(squeeze(ampMeanTrial(:,1,1))));
+% hold on
+% plot(zscore(squeeze(stdTrialsAmp(:,1,1))));
+% plot(zscore(squeeze(phVar(:,1,1))));
+% plot(zscore(squeeze(totalVar(:,1,1))));
+% plot(zscore(squeeze(phMeanTrial(:,1,1))));
+% 
+% legend('amplitude','amp var', 'ph var','timepoint var','latency');
+% subplot(rows,cols,2)%temporal jitter
+% plot(zscore(squeeze(ampMeanTrial(1,:,1))));
+% hold on
+% plot(zscore(squeeze(stdTrialsAmp(1,:,1))));
+% plot(zscore(squeeze(phVar(1,:,1))));
+% plot(zscore(squeeze(totalVar(1,:,1))));
+% plot(zscore(squeeze(phMeanTrial(1,:,1))));
+% 
+% subplot(rows,cols,3)%amplitude jitter
+% plot(zscore(squeeze(ampMeanTrial(1,1,:))));
+% hold on
+% plot(zscore(squeeze(stdTrialsAmp(1,1,:))));
+% plot(zscore(squeeze(phVar(1,1,:))));
+% plot(zscore(squeeze(totalVar(1,1,:))));
+% plot(zscore(squeeze(phMeanTrial(1,1,:))));
+%%
 % %% PLOT VARIABILITY AS FUNCTION OF SNR AND TEMPORAL JITTER
 % i=i+1; figure(i) ;clf
 % rows=3;
@@ -270,6 +313,7 @@ totalVar = mean(std(rwdTrials,0,5),4);
 %% 
 linewidth = 0.1;
 markersize = 10;
+fontsize=9;
 % i=i+1; figure(i) ;clf
 % rows=3; cols=3;
 % %SNR
@@ -379,30 +423,31 @@ for isnr=1:length(snr)
     hold on
 end
 
-%temporal variability
-subplot(rows,cols,2*cols+1)
-isnr=1;
-for ijitter=1:length(jitter)    
-    plot(TR*(0:trialLength-1),squeeze(meanTrial(isnr,ijitter,iampJitter,:)),'color',plotColorsJitter{ijitter},'linewidth',linewidth);
-    hold on
-end
-subplot(rows,cols,2*cols+2)
-for ijitter=1:length(jitter)
-    plot(TR*(0:trialLength-1),squeeze(std(rwdTrials(isnr,ijitter,iampJitter,:,:),0,5)),'color',plotColorsJitter{ijitter},'linewidth',linewidth);
-    hold on
-end
 
 %amplitude variability
-subplot(rows,cols,3*cols+1)
-isnr=1;
-ijitter=1;
+subplot(rows,cols,2*cols+1)
+isnr=1; ijitter=1;
 for iampJitter=1:length(ampJitter)    
     plot(TR*(0:trialLength-1),squeeze(meanTrial(isnr,ijitter,iampJitter,:)),'color',plotColorsAmpJitter{iampJitter},'linewidth',linewidth);
     hold on
 end
-subplot(rows,cols,3*cols+2)
+subplot(rows,cols,2*cols+2)
 for iampJitter=1:length(ampJitter)
     plot(TR*(0:trialLength-1),squeeze(std(rwdTrials(isnr,ijitter,iampJitter,:,:),0,5)),'color',plotColorsAmpJitter{iampJitter},'linewidth',linewidth);
+    hold on
+end
+
+
+%temporal variability
+subplot(rows,cols,3*cols+1)
+isnr=1; iampJitter=1;
+for ijitter=1:length(jitter)    
+    plot(TR*(0:trialLength-1),squeeze(meanTrial(isnr,ijitter,iampJitter,:)),'color',plotColorsJitter{ijitter},'linewidth',linewidth);
+    hold on
+end
+subplot(rows,cols,3*cols+2)
+for ijitter=1:length(jitter)
+    plot(TR*(0:trialLength-1),squeeze(std(rwdTrials(isnr,ijitter,iampJitter,:,:),0,5)),'color',plotColorsJitter{ijitter},'linewidth',linewidth);
     hold on
 end
 %%
@@ -410,19 +455,24 @@ for isubplot=1:rows*cols
     subplot(rows,cols,isubplot)
     xlabel('time (sec)');
     if isubplot<3
-        ylabel('BOLD signal (arb units)');
+        ylabel('response (arb units)');
     elseif mod(isubplot,2)==1 
-        ylabel('BOLD signal (std image intensity)');
+        ylabel('response (arb units)');
     else
-        ylabel('signal variability (std)');
+        ylabel('variability (std)');
     end
-    drawPublishAxis('xLabelOffset', -7/64,'yLabelOffset', -10/64, 'xAxisMargin', 4/64, 'yAxisMargin', 0/64,'xAxisMinMaxSetByTicks',0,...
-        'labelFontSize',7);
+    if toZscore
+        drawPublishAxis('xLabelOffset', -9/64,'yLabelOffset', -10/64, 'xAxisMargin', 4/64, 'yAxisMargin', 0/64,'xAxisMinMaxSetByTicks',0,...
+        'labelFontSize',fontsize);
+    else
+        drawPublishAxis('xLabelOffset', -9/64,'yLabelOffset', -16/64, 'xAxisMargin', 4/64, 'yAxisMargin', 2/64,'xAxisMinMaxSetByTicks',0,...
+        'labelFontSize',fontsize);
+    end
     axis square
 end
 % set(gcf,'position',[10 10 15 24]);
-set(gcf,'position',[10 10 10 21]);
-print('-painters','-dpdf',['~/Documents/MATLAB/min/figures/fig8.pdf']);
+set(gcf,'position',[10 10 9.7 21]);
+print('-painters','-dpdf',['~/Documents/MATLAB/min/figures/fig8_hrfType' num2str(hrfType) '.pdf']);
 
 
 %% COLORMAP

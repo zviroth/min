@@ -4,6 +4,7 @@
 close all
 mrQuit
 clear all
+ConcatProj=1;
 tic
 dataFolder = '/Volumes/MH02086153MACDT-Drobo/allMinSubjects_concatenated/';
 % dataFolder = '/Volumes/MH02086153MACDT-Drobo/allMinSubjects/';
@@ -47,16 +48,25 @@ respStdWindow = 6*ecgSampleRate;
 
 
 
-deconvLength = 12;
+deconvLength = 10;
 numSubs = length(subFolders);
 for iSub=1:numSubs
     cd(subFolders{iSub});
     v=newView;
-% 
-    concatGroupNum = viewGet(v,'groupNum','concatSessions'); %concatenation of multiple sessions
-    if isempty(concatGroupNum)%single session
-        concatGroupNum = viewGet(v,'groupNum','Concatenation');
+    %
+    if ConcatProj
+        concatGroupNum = viewGet(v,'groupNum','ConcatenationProj'); %concatenation of multiple sessions
+    else
+        concatGroupNum = viewGet(v,'groupNum','concat'); %concatenation of multiple sessions
+        if isempty(concatGroupNum)%single session
+            concatGroupNum = viewGet(v,'groupNum','Concatenation');
+        end
     end
+
+%     concatGroupNum = viewGet(v,'groupNum','concatSessions'); %concatenation of multiple sessions
+%     if isempty(concatGroupNum)%single session
+%         concatGroupNum = viewGet(v,'groupNum','Concatenation');
+%     end
     
     %load benson eccentricity maps
     v = viewSet(v, 'curGroup', 'templates');
@@ -268,7 +278,11 @@ for iSub=1:numSubs
 end
 
 %%
-save([dataFolder 'rwd_physioRegress_eccen.mat'], 'dataFolder', 'subFolders', 'numSubs','roiNames', ...
+ConcatProjStr = '';
+if ConcatProj
+    ConcatProjStr = 'ConcatProj';
+end
+save([dataFolder 'rwd_physioRegress_eccen' ConcatProjStr '.mat'], 'dataFolder', 'subFolders', 'numSubs','roiNames', ...
     'numRuns','numTRs','concatInfo',...
     'trialsPerRun','trialLength','junkedFrames','TR',...
     'ecgselect','ecgSampleRate','ecgTrial','ecgRunLength','ecgInterpMethod',...

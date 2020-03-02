@@ -63,6 +63,7 @@ clear allTrials meanRwdStd binCenters
 
 % goodSubs = 1:length(subFolders);
 goodSubs = [1:3 5:length(subFolders)]; %excluding subject 22
+keyboard
 % subjects. 0.0457  0.0140,     0.0553    0.0214
 figure(1)
 clf
@@ -282,7 +283,14 @@ set(gcf,'position',[10 10 25 6]);
 print('-painters','-dpdf',['~/Documents/MATLAB/min/figures/fig3_' ConcatProjStr '.pdf']);
 %%
 toc
-
+% print('-painters','-depsc',['~/Documents/MATLAB/min/figures/fig3_s0008_flat_eccen.eps']);
+% print('-painters','-depsc',['~/Documents/MATLAB/min/figures/fig3_s0008_flat_corr.eps']);
+% print('-painters','-depsc',['~/Documents/MATLAB/min/figures/fig3_s0008_flat_phase_hotcool.eps']);
 
 % print('-painters','-depsc',['~/Documents/MATLAB/min/figures/fig2_s0008_flat_eccen.eps']);
+% print('-painters','-depsc',['~/Documents/MATLAB/min/figures/fig2_s0008_flat_corr.eps']);
+% print('-painters','-depsc',['~/Documents/MATLAB/min/figures/fig2_s0008_flat_phase_hotcool.eps']);
 
+% print('-painters','-depsc',['~/Documents/MATLAB/min/figures/fig2_s0008_left_flat_eccen.eps']);
+% print('-painters','-depsc',['~/Documents/MATLAB/min/figures/fig2_s0008_left_flat_corr.eps']);
+% print('-painters','-depsc',['~/Documents/MATLAB/min/figures/fig2_s0008_left_flat_phase_hotcool.eps']);

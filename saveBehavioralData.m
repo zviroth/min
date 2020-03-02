@@ -1,5 +1,6 @@
 tic
-clear dataFolder s rwdPupil meanPupil stdRwd numRuns numTrials trialLength runSize subPupil 
+clear all
+close all
 saveFolder = '/Volumes/MH02086153MACDT-Drobo/allMinBehavioral/';
 % subFolders = {'s000520180126','s000820171116','s001620171103','s002220171122','s003220180105','s003920180220',...
 %     's004020180221','s004120180223','s004320180306','s004520180308','s004620180309','s004620180323','s004720180326',...
@@ -7,8 +8,8 @@ saveFolder = '/Volumes/MH02086153MACDT-Drobo/allMinBehavioral/';
 subFolders = {'s000520180126','s000820171116','s001620171103','s002220171122','s003220180105','s003920180220',...
     's004020180221','s004120180223','s004320180306','s004520180308','s004620180323','s004720180326',...
     's004920180404'};
-onlyCorrect=0;%1=correct,2=incorrect,0=all (with response)
-% subdirs=[];
+onlyCorrect=0;%1=correct,2=incorrect,0=all trials with response, 4=all trials.
+maxRT=4000;
 % for i=1:length(dataFolder)
 %     cd(dataFolder{i});
 %     temp = dir('s00*');
@@ -63,15 +64,28 @@ for iSub = 1:length(subFolders)
         trialCorrectnessVec = temp(:);
         temp = trialResponse{iSub,rwd}(:,2:end-1);
         trialResponseVec = temp(:);
-            
+        temp = trialRT{iSub,rwd}(:,2:end-1);
+        trialRTvec = temp(:);
+        
         if onlyCorrect ==1 %ONLY CORRECT
-                goodTrials = trialCorrectnessVec==1;
-                %                 numTrials = sum(trialCorrectnessVec);
-            elseif onlyCorrect ==2 % ONLY INCORRECT!!!
-                goodTrials = trialCorrectnessVec==0 & trialResponseVec>0;
-            else % including all trials with a response
-                goodTrials = trialResponseVec>0;
+            goodTrials = trialCorrectnessVec==1 & trialRTvec>0 & trialRTvec<maxRT;
+            %                 numTrials = sum(trialCorrectnessVec);
+        elseif onlyCorrect ==2 % ONLY INCORRECT!!!
+            goodTrials = trialCorrectnessVec==0 & trialResponseVec>0 & trialRTvec>0 & trialRTvec<maxRT;
+        elseif onlyCorrect == 0 % including all trials with a response
+            goodTrials = trialResponseVec>0 & trialRTvec>0 & trialRTvec<maxRT;
+        else%onlyCorrect == 4
+            goodTrials = ones(size(trialResponseVec));%ALL trials
         end
+        
+%         if onlyCorrect ==1 %ONLY CORRECT
+%                 goodTrials = trialCorrectnessVec==1;
+%                 %                 numTrials = sum(trialCorrectnessVec);
+%             elseif onlyCorrect ==2 % ONLY INCORRECT!!!
+%                 goodTrials = trialCorrectnessVec==0 & trialResponseVec>0;
+%             else % including all trials with a response
+%                 goodTrials = trialResponseVec>0;
+%         end
         rwdPupil{iSub,rwd} = rwdPupil{iSub,rwd}(goodTrials,:);
         subMeanCorrectness(iSub,rwd) = mean(trialCorrectness{iSub,rwd}(trialCorrectness{iSub,rwd}>0));
         trialRT{iSub,rwd} = trialRT{iSub,rwd}(goodTrials);
@@ -92,12 +106,15 @@ for iSub = 1:length(subFolders)
     end
     minlength = min(length(meanPupil{iSub,1}), length(meanPupil{iSub,2}));
     diffPupil{iSub} = meanPupil{iSub,1}(1:minlength) - meanPupil{iSub,2}(1:minlength);
+
 end
 onlyCorrectString = '';
 if onlyCorrect==1
     onlyCorrectString = '_correct';
 elseif onlyCorrect==2
     onlyCorrectString = '_incorrect';
+elseif onlyCorrect==0
+    onlyCorrectString = '_validresponse';
 end
 
 save([saveFolder 'behavioralData' onlyCorrectString '.mat'], 'subFolders', 'subPupil', 'runSize', 'rwdPupil',...

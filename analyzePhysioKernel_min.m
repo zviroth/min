@@ -78,7 +78,19 @@ for ikernel=1:nkernels
     title([kernelStr{ikernel} ' kernel: ' roiNames{iRoi}]);
 end
 
-
+%%
+i=i+1; figure(i); clf
+rows=2;
+cols = ceil(length(subFolders)/rows);
+iRoi=2;
+ikernel=2;
+for iSub=1:length(subFolders)
+    subplot(rows,cols,iSub)
+   for rwd=1:2
+       plot(squeeze(physioKernel(iSub,iRoi,rwd,(ikernel-1)*deconvLength+1:ikernel*deconvLength)),'color',plotColors{rwd},'linewidth', linewidth);
+       hold on;
+   end
+end
 
 
 %%

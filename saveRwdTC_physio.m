@@ -3,9 +3,9 @@ clear all
 tic
 maxRT=4000;
 onlyCorrect=0;%1=correct,2=incorrect,0=all trials with response, 4=all trials.
-toZscore=1;%0 or 1
+toZscore=0;%0 or 1
 regressGlobalMean = 0;
-ConcatProj = 1;
+ConcatProj = 0;
 curFolder = pwd;
 dataFolder = '/Volumes/MH02086153MACDT-Drobo/allMinSubjects_concatenated/';
 % subFolders = {'000520180116', '0008i20180213', '0016i20180207', ...
@@ -23,7 +23,9 @@ numSubs=length(subFolders);
 % roiNames = {'rV1_eccen8', 'lV1_eccen8','rV2_eccen8','lV2_eccen8','rV3_eccen8','lV3_eccen8','rh_17Networks_16','lh_17Networks_16'};
 % roiNames = {'leftBenson', 'rightBenson'};
 % roiNames = { 'leftBenson', 'rightBenson','lV1_eccen8','rV1_eccen8','lV2_eccen8','rV2_eccen8','lV3_eccen8','rV3_eccen8','lh_17Networks_16','rh_17Networks_16'};
-roiNames = { 'leftBenson', 'rightBenson','lh_17Networks_16','rh_17Networks_16'};
+% roiNames = { 'leftBenson', 'rightBenson','lh_17Networks_16','rh_17Networks_16'};
+roiNames = { 'leftBenson', 'rightBenson','Lviz_localizer','Rviz_localizer','lh_17Networks_16','rh_17Networks_16','leftCerebellarCortex','rightCerebellarCortex'};
+
 
 junkedFrames = 10;
 trialLength=10;
@@ -201,7 +203,7 @@ for iSub = 1:numSubs
             end
             ecg{iSub,rwd,r}=load(ecgfilename);
             [ecgPeaks{iSub,rwd,r},criterion] = pickpeaks(ecg{iSub,rwd,r},ecgselect,display);
-            ecgPeaksDiff{iSub,rwd,r} = diff(ecgPeaks{iSub,rwd,r});
+            ecgPeaksDiff{iSub,rwd,r} = diff(ecgPeaks{iSub,rwd,r});%units are timepoints = 1/ecgSampleRate sec.
             ecgPeaksAmp{iSub,rwd,r} = ecg{iSub,rwd,r}(ecgPeaks{iSub,rwd,r});
             ecgRateTime{iSub,rwd,r} = ecgPeaks{iSub,rwd,r}(1:end-1) + 0.5*diff(ecgPeaks{iSub,rwd,r});%timepoints between the peaks
             scaleFactor = mean(ecgPeaksAmp{iSub,rwd,r})/mean(ecgPeaksDiff{iSub,rwd,r});%for visualization purposes
@@ -411,7 +413,7 @@ save([dataFolder 'rwdTC_physio' onlyCorrectString zScoreString globalMeanString 
     'respselect','resp',...
     'rwdPulseTC','rwdRvTC',...
     'designMatPulse','designMatRespPulse','designMatResp','deconvLength',...
-    'allGoodTrials');
+    'allGoodTrials','allGoodTRs');
 
 runRwd
 toc

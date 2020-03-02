@@ -1,6 +1,6 @@
 close all; clear all;
 onlyCorrect=0;%1=correct,2=incorrect,0=all (with response)
-toZscore=0;%0 or 1
+toZscore=1;%0 or 1
 regressGlobalMean = 0;
 ConcatProj=0;
 curFolder = pwd;
@@ -8,11 +8,14 @@ dataFolder = '/Volumes/MH02086153MACDT-Drobo/allMinSubjects_concatenated/';
 subFolders = {'000520180116', '0008i20180213', '0016i20180207', '002220171212', '003220180105', '0034i20180209', '003520180328', '004020180328','004120180320', '0042i20180412', '0045i20180309', '0046i20180409', '0049i20180404', '005220180621'};
 
 nperms=10000;
+
 onlyCorrectString = '';
 if onlyCorrect==1
     onlyCorrectString = '_correct';
 elseif onlyCorrect==2
     onlyCorrectString = '_incorrect';
+elseif onlyCorrect==0
+    onlyCorrectString = '_validresponse';
 end
 zScoreString = '';
 if toZscore
@@ -33,7 +36,11 @@ load([dataFolder 'rwdTC_concat' onlyCorrectString zScoreString globalMeanString 
     'expName','stairThresh','eccen','ang','areas','trialLength',...
     'subMeanCorrectness', 'subMeanRT','subMedianRT','subMeanThresh',...
     'subMeanRunTC','subStdRunTC','subStd','subRoiRuns',...
-    'globalMean','regressBetasGlobal','runRwd','L');
+    'globalMean','regressBetasGlobal','runRwd',...
+    'subRoiRuns','runMeanFFT',...
+    'allVoxTrialResponse','allVoxTaskPhase','allVoxTaskAmp','allVoxTaskCo',...
+    'voxTrials','voxGoodTrials','meanVoxTrial',...
+    'maxRT');
 
 % trialLength=10;
 clear subMeanResponse trialStd meanTrialStd runStd meanRunStd subRwdStd trialFFTamp trialFFTphase meanTrialFFTamp meanTrialFFTphase 

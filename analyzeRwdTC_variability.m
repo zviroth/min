@@ -7,8 +7,11 @@ curFolder = pwd;
 dataFolder = '/Volumes/MH02086153MACDT-Drobo/allMinSubjects_concatenated/';
 subFolders = {'000520180116', '0008i20180213', '0016i20180207', '002220171212', '003220180105', '0034i20180209', '003520180328', '004020180328','004120180320', '0042i20180412', '0045i20180309', '0046i20180409', '0049i20180404', '005220180621'};
 
-randSeed = rng;
+% randSeed = rng;
 load(fullfile(dataFolder,'randSeed.mat'),'randSeed');
+rng(randSeed);
+% save(fullfile(dataFolder,'randSeed.mat'),'randSeed');
+
 
 nperms=10000;
 onlyCorrectString = '';
@@ -24,8 +27,10 @@ if toZscore
     zScoreString = '_zscored';
 end
 globalMeanString = '';
-if regressGlobalMean
+if regressGlobalMean==1
     globalMeanString = '_globalRegressed';
+elseif regressGlobalMean==2
+    globalMeanString = '_bensonRegressed';
 end
 ConcatProjStr = '';
 if ConcatProj
@@ -144,6 +149,7 @@ for iSub = 1:length(goodSubs)%length(subdirs)
             else
                 allTrials{iRoi,rwd} = [allTrials{iRoi,rwd} reshapedTrials];
             end
+
         end
      end
 end
@@ -431,57 +437,15 @@ realRTdiff = realMeanRT(2) - realMeanRT(1);
 pVal_RT = sum(permRTdiff >= realRTdiff)/nperms;
 
 
-save(fullfile(dataFolder,'randSeed.mat'),'randSeed');
 
 %%
 histbins=1000;
 rows=length(roiNames);
 cols = length(goodSubs);
-% i=i+1;
-% figure(i)
-% clf
-% for iSub = 1:length(goodSubs)
-%     for iRoi= ROIs
-%         subplot(rows,cols,iSub + (iRoi-1)*cols)
-%         histogram(squeeze(permSubDiff(iSub,iRoi,:)),histbins); hold all
-%         vline(prctile(permSubDiff(iSub,iRoi,:),95),'k');
-%         vline(realSubDiff(iSub,iRoi),'r');
-%     end
-% end
-        
-        
-% %%
-% i=i+1;
-% figure(i)
-% clf
-% rows=length(roiNames);
-% cols = 3;
-% for iRoi= ROIs
-%     %baseline
-%     subplot(rows,cols,1+(iRoi-1)*cols)
-%         histogram(squeeze(meanPermBaselineStdDiff(iRoi,:)),histbins); hold all
-%         vline(prctile(meanPermBaselineStdDiff(iRoi,:),95),'k');
-%         vline(meanRealBaselineStdDiff(iRoi),'r');
-%         title(['baseline: ' roiNames{iRoi}]);
-%     %amplitude
-%         subplot(rows,cols,2+(iRoi-1)*cols)
-%         histogram(squeeze(meanPermAmpStdDiff(iRoi,:)),histbins); hold all
-%         vline(prctile(meanPermAmpStdDiff(iRoi,:),95),'k');
-%         vline(meanRealAmpStdDiff(iRoi),'r');
-%         title(['amplitude: ' roiNames{iRoi}]);
-%     %other FFT
-%         subplot(rows,cols,3+(iRoi-1)*cols)
-%         histogram(squeeze(meanPermOtherStdDiff(iRoi,:)),histbins); hold all
-%         vline(prctile(meanPermOtherStdDiff(iRoi,:),95),'k');
-%         vline(meanRealOtherStdDiff(iRoi),'r');
-%         title(['other FFT: ' roiNames{iRoi}]);
-% end
-
-
 
 
 %%
-globalMean{iSub,rwd}\roiTC{iSub,iRoi,rwd}.tSeries';
+% globalMean{iSub,rwd}\roiTC{iSub,iRoi,rwd}.tSeries';
 
 
 
@@ -496,7 +460,6 @@ for iRoi = 1:length(roiNames)
 end
 
 
-iRoi=2;
 
 smallSubDiff = smallSubAmp(:,:,1) - smallSubAmp(:,:,2);
 subStdDiff = mean(subTimepointStd(:,:,2,:),4) - mean(subTimepointStd(:,:,1,:),4);
@@ -578,24 +541,7 @@ subTimepointStdDiff = squeeze(subTimepointStd(:,:,1,:) - subTimepointStd(:,:,2,:
  plot(squeeze(groupMeanVar(:,:,2,:)-groupMeanVar(:,:,1,:)),'k','linewidth',2);
   title('mean timepoint variability');
   
-%  % mean response derivative
-%  i=i+1; figure; clf
-%  cols=5;
-%  rows=ceil(length(goodSubs)/cols);
-%  for iSub=1:length(goodSubs)
-%      subplot(rows,cols,iSub)
-%      for rwd=1:2
-%          plot(squeeze(abs(diff(subResponse(goodSubs(iSub),iRoi,rwd,:)))),'color', plotColors{rwd},'linewidth',2);
-%          hold on
-%      end
-%  end
-%  subplot(rows,cols,rows*cols)
-%  for rwd=1:2
-%      plot(squeeze(abs(diff(groupMeanVar(:,:,rwd,:)))),'color', plotColors{rwd},'linewidth',3);
-%      hold on
-%  end
-%  title('derivative of mean response');
- 
+
  
  for iRoi = 1:length(roiNames)
      for iSub=1:length(goodSubs)
@@ -608,66 +554,117 @@ subTimepointStdDiff = squeeze(subTimepointStd(:,:,1,:) - subTimepointStd(:,:,2,:
  groupDeriv(1:9) = abs(diff(groupMeanVar(:,:,rwd,:)));
   groupDeriv(10) = abs(groupMeanVar(:,:,rwd,end) - groupMeanVar(:,:,rwd,1));
  corr(squeeze(groupMeanVar(:,:,2,:)-groupMeanVar(:,:,1,:)), squeeze(groupDeriv)')
-% %%
-% i=i+1;
-% figure(i)
-% clf
-% cols = length(goodSubs);
-% rows=2;
-% for iSub=1:length(goodSubs)
-%     for rwd=1:2
-%         subplot(rows,cols,(rwd-1)*cols+iSub)
-%         plot(subTrialResponse{goodSubs(iSub),iRoi,rwd});
-%         hold on
-%         plot(mean(subTrialResponse{goodSubs(iSub),iRoi,rwd},2),'k','linewidth',2);
-%     end
-% end
-% %%
-% i=i+1;
-% figure(i)
-% clf
-% cols = length(goodSubs);
-% rows=1;
-% for iSub=1:length(goodSubs)
-%     subplot(rows,cols,iSub)
-%     for rwd=1:2
-%         
-% %         plot(subTrialResponse{goodSubs(iSub),iRoi,rwd});
-% %         hold on
-% %         plot(mean(subTrialResponse{goodSubs(iSub),iRoi,rwd},2),'color',plotColors{rwd},'linewidth',2);
-%         plot(squeeze(subResponse(goodSubs(iSub),iRoi,rwd,:)), 'Color', plotColors{rwd}, 'linewidth', linewidth,'markersize',20);
-% 
-%         hold on
-%     end
-% end
 
 %% correlate trial-by-trial RT with response amplitude/timing
 %correlate RT with BOLD timing
 
-for iSub=1:length(goodSubs)
-    for iRoi= ROIs
-        for rwd=1:2
-            
-           [rtBoldPhCorr(iSub,iRoi,rwd) rtBoldPhCorrPval(iSub,iRoi,rwd)]=  corr(trialRoiFftPhVec{iSub,iRoi,rwd}', trialRTvec{iSub,rwd});
-           [rtBoldPhShiftCorr(iSub,iRoi,rwd) rtBoldPhShiftCorrPval(iSub,iRoi,rwd)]=  corr(circshift(trialRoiFftPhVec{iSub,iRoi,rwd}',-1), trialRTvec{iSub,rwd});
-            
-           [rtBoldAmpCorr(iSub,iRoi,rwd) rtBoldAmpCorrPval(iSub,iRoi,rwd)]=  corr(trialRoiFftAmpVec{iSub,iRoi,rwd}', trialRTvec{iSub,rwd});
-            [rtBoldAmpShiftCorr(iSub,iRoi,rwd) rtBoldAmpShiftCorrPval(iSub,iRoi,rwd)]=  corr(circshift(trialRoiFftAmpVec{iSub,iRoi,rwd}',-1), trialRTvec{iSub,rwd});
 
+for iRoi= ROIs
+    for rwd=1:2
+        allRTvec{iRoi,rwd}=[];
+        allPhVec{iRoi,rwd}=[];
+        allStdVec{iRoi,rwd}=[];
+        allAmpVec{iRoi,rwd}=[];
+        for iSub=1:length(goodSubs)
+            [rtBoldPhCorr(iSub,iRoi,rwd) rtBoldPhCorrPval(iSub,iRoi,rwd)]=  corr(trialRoiFftPhVec{iSub,iRoi,rwd}', trialRTvec{iSub,rwd});
+            [rtBoldPhShiftCorr(iSub,iRoi,rwd) rtBoldPhShiftCorrPval(iSub,iRoi,rwd)]=  corr(circshift(trialRoiFftPhVec{iSub,iRoi,rwd}',-1), trialRTvec{iSub,rwd});
+            
+            [rtBoldAmpCorr(iSub,iRoi,rwd) rtBoldAmpCorrPval(iSub,iRoi,rwd)]=  corr(trialRoiFftAmpVec{iSub,iRoi,rwd}', trialRTvec{iSub,rwd});
+            [rtBoldAmpShiftCorr(iSub,iRoi,rwd) rtBoldAmpShiftCorrPval(iSub,iRoi,rwd)]=  corr(circshift(trialRoiFftAmpVec{iSub,iRoi,rwd}',-1), trialRTvec{iSub,rwd});
+            
             [rtBoldStdCorr(iSub,iRoi,rwd) rtBoldStdCorrPval(iSub,iRoi,rwd)]=  corr(trialRoiAmpVec{iSub,iRoi,rwd}', trialRTvec{iSub,rwd});
             [rtBoldStdShiftCorr(iSub,iRoi,rwd) rtBoldStdShiftCorrPval(iSub,iRoi,rwd)]=  corr(circshift(trialRoiAmpVec{iSub,iRoi,rwd}',-1), trialRTvec{iSub,rwd});
             
             
-            trialMat = [-trialRoiFftPhVec{iSub,iRoi,rwd}', trialRoiFftAmpVec{iSub,iRoi,rwd}',trialRoiAmpVec{iSub,iRoi,rwd}',trialRTvec{iSub,rwd}];
-            [trialCorr(iSub,iRoi,rwd,:,:) trialCorrPval(iSub,iRoi,rwd,:,:)] = corr(trialMat);
+            subTrialMat = [trialRoiFftPhVec{iSub,iRoi,rwd}', trialRoiFftAmpVec{iSub,iRoi,rwd}',trialRoiAmpVec{iSub,iRoi,rwd}',-trialRTvec{iSub,rwd}];
+            [subTrialCorr(iSub,iRoi,rwd,:,:) subTrialCorrPval(iSub,iRoi,rwd,:,:)] = corr(subTrialMat);
+            
+            %pool across subjects
+%             allRTvec{iRoi,rwd} = [allRTvec{iRoi,rwd}; zscore(trialRTvec{iSub,rwd})]; 
+%             allPhVec{iRoi,rwd}= [allPhVec{iRoi,rwd}; zscore(trialRoiFftPhVec{iSub,iRoi,rwd})'];
+%             allStdVec{iRoi,rwd}=[allStdVec{iRoi,rwd}; zscore(trialRoiAmpVec{iSub,iRoi,rwd})'];
+%             allAmpVec{iRoi,rwd}=[allAmpVec{iRoi,rwd}; zscore(trialRoiFftAmpVec{iSub,iRoi,rwd})'];
+            
+            allRTvec{iRoi,rwd} = [allRTvec{iRoi,rwd}; trialRTvec{iSub,rwd}]; 
+            allPhVec{iRoi,rwd}= [allPhVec{iRoi,rwd}; trialRoiFftPhVec{iSub,iRoi,rwd}'];
+            allStdVec{iRoi,rwd}=[allStdVec{iRoi,rwd}; trialRoiAmpVec{iSub,iRoi,rwd}'];
+            allAmpVec{iRoi,rwd}=[allAmpVec{iRoi,rwd}; trialRoiFftAmpVec{iSub,iRoi,rwd}'];
+        end
+        rwdTrialMat{iRoi, rwd} = [allPhVec{iRoi,rwd}'; allAmpVec{iRoi,rwd}'; allStdVec{iRoi,rwd}'; -allRTvec{iRoi,rwd}'];
+        [roiTrialCorr(iRoi,rwd,:,:) roiTrialCorrPval(iRoi,rwd,:,:)] = corr(rwdTrialMat{iRoi, rwd}');
+    end
+    trialMat{iRoi} = [rwdTrialMat{iRoi, 1} rwdTrialMat{iRoi, 2}]; 
+    [roiTrialCorr(iRoi,3,:,:) roiTrialCorrPval(iRoi,3,:,:)] = corr(trialMat{iRoi}');
+end
+trialLabels = {'FFT ph','FFT amp','STD amp','-RT'};
+
+%% pooled trial correlations
+i=i+1; figure; clf
+iRoi=2;
+rows=3;
+cols=3;
+for rwd=1:2
+    subplot(rows,cols,rwd)
+    imagesc(squeeze( roiTrialCorr(iRoi,rwd,:,:)));
+    yticks(1:length(trialLabels));
+    yticklabels(trialLabels);
+    xticks(1:length(trialLabels));
+    xticklabels(trialLabels);
+    title(['pooled trial-by-trial correlations, ' rwdString{rwd}]);
+end
+subplot(rows,cols,3)
+imagesc(squeeze( roiTrialCorr(iRoi,3,:,:)));
+
+
+%permutation test of pooled correlations
+nfactors = size(rwdTrialMat{iRoi,rwd},1);
+ntotaltrials = size(rwdTrialMat{iRoi,rwd},2);
+clear permTrialMat
+for iRoi=ROIs
+    for rwd=1:2
+        for p=1:nperms
+            clear permRwdTrialMat
+            for ifactor=1:nfactors
+                permRwdTrialMat(ifactor,:) = rwdTrialMat{iRoi,rwd}(ifactor,randperm(ntotaltrials));
+            end
+            permTrialCorr(iRoi,rwd,p,:,:) = corr(permRwdTrialMat');
+        end
+    end
+    for p=1:nperms
+        clear permTrialMat
+        for ifactor=1:nfactors
+            permTrialMat(ifactor,:) = trialMat{iRoi}(ifactor,randperm(ntotaltrials));
+        end
+        permTrialCorr(iRoi,3,p,:,:) = corr(permTrialMat');
+    end
+end
+
+%p-values for trial-by-trial correlations
+for iRoi=ROIs
+    for rwd=1:3
+        for ifactor=1:nfactors
+            for jfactor=1:nfactors
+                pvalTrialCorr(iRoi,rwd,ifactor,jfactor) = sum(squeeze(permTrialCorr(iRoi,rwd,:,ifactor,jfactor))>=roiTrialCorr(iRoi,rwd,ifactor,jfactor))./nperms;
+            end
         end
     end
 end
-trialLabels = {'FFT ph','FFT amp','STD amp','RT'};
 
+for rwd=1:3
+    subplot(rows,cols,cols+rwd)
+    imagesc(squeeze( pvalTrialCorr(2,rwd,:,:)));
+end
+
+
+for rwd=1:3
+    subplot(rows,cols,2*cols+rwd)
+    imagesc(squeeze( roiTrialCorrPval(2,rwd,:,:)));
+end
+
+%% mean over single subject correlations
 for iRoi=ROIs
     for rwd=1:2
-        meanTrialCorr(iRoi,rwd,:,:) = squeeze(mean(trialCorr(:,iRoi,rwd,:,:)));
+        meanSubTrialCorr(iRoi,rwd,:,:) = squeeze(mean(subTrialCorr(:,iRoi,rwd,:,:)));
     end
 end
 i=i+1; figure; clf
@@ -675,12 +672,12 @@ i=i+1; figure; clf
  cols=2;
  for rwd=1:2
      subplot(rows,cols,rwd)
-     imagesc(squeeze(meanTrialCorr(2,rwd,:,:)));
+     imagesc(squeeze(meanSubTrialCorr(2,rwd,:,:)));
      yticks(1:length(trialLabels));
 yticklabels(trialLabels);
 xticks(1:length(trialLabels));
 xticklabels(trialLabels);
-title(['trial-by-trial correlations, ' rwdString{rwd}]);
+title(['subject trial-by-trial correlations, ' rwdString{rwd}]);
  end
  
 %% CORRELATION MATRIX

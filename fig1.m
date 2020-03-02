@@ -17,8 +17,9 @@ plotColors = { [0 0 1],[1 0 0],[0 1 0], [0.5 1 0.2]};
 plotColors = { [1 0 0],[0 0 1],[0 1 0], [0.5 1 0.2]};
 plotStyles = {'-','--',':','-.','-','--',':','-.'};
 linewidth = 1;
-dsSurfaceContrast = 0.5;
-dsSurfaceAlpha = 0.3;
+fontsize=9;
+dsSurfaceContrast = 1;
+dsSurfaceAlpha = 0.15;
 %%
 i=0;
 minLength = 2000;
@@ -37,30 +38,30 @@ for iSub = 1:length(subFolders)
 end
 
 
-i=i+1;
-figure(i)
-clf
-rows=2;
-cols=ceil(length(subFolders)/2);
-for iSub=1:length(subFolders)
-    subplot(rows,cols,iSub)
-    for rwd=1:2
-        dsErrorsurface((1:minLength)*2, meanPupil{iSub,rwd}(1:minLength), stdRwd{iSub,rwd}(1:minLength)./sqrt(numTrials(iSub,rwd)), dsSurfaceContrast*plotColors{rwd},dsSurfaceAlpha);
-        hold on
-    end
-    for rwd=1:2
-        plot((1:minLength)*2,meanPupil{iSub,rwd}(1:minLength),'Color',plotColors{rwd},'linewidth',linewidth);
-    end
-end
+% i=i+1;
+% figure(i)
+% clf
+% rows=2;
+% cols=ceil(length(subFolders)/2);
+% for iSub=1:length(subFolders)
+%     subplot(rows,cols,iSub)
+%     for rwd=1:2
+%         dsErrorsurface((1:minLength)*2, meanPupil{iSub,rwd}(1:minLength), stdRwd{iSub,rwd}(1:minLength)./sqrt(numTrials(iSub,rwd)), dsSurfaceContrast*plotColors{rwd},dsSurfaceAlpha);
+%         hold on
+%     end
+%     for rwd=1:2
+%         plot((1:minLength)*2,meanPupil{iSub,rwd}(1:minLength),'Color',plotColors{rwd},'linewidth',linewidth);
+%     end
+% end
 
-i=i+1;
-figure(i)
-clf
-for iSub=1:length(subFolders)
-    subplot(rows,cols,iSub)
-    
-    plot((1:minLength)*2, diffPupil(iSub,:),'k','linewidth',linewidth);
-end
+% i=i+1;
+% figure(i)
+% clf
+% for iSub=1:length(subFolders)
+%     subplot(rows,cols,iSub)
+%     
+%     plot((1:minLength)*2, diffPupil(iSub,:),'k','linewidth',linewidth);
+% end
 
 
 %%
@@ -109,10 +110,10 @@ for isubplot=1:rows*cols
    axis square
    if mod(isubplot,2)>0
        ylabel('pupil size (arb. units)');
-        drawPublishAxis('xLabelOffset', -6/64,'yLabelOffset', -12/64, 'xAxisMargin', 4/64, 'yAxisMargin', 4/64,'labelFontSize',7);
+        drawPublishAxis('xLabelOffset', -8/64,'yLabelOffset', -12/64, 'xAxisMargin', 4/64, 'yAxisMargin', 4/64,'labelFontSize',fontsize);
    else
        ylabel('\Delta pupil size (arb. units)');
-       drawPublishAxis('xLabelOffset', -6/64,'yLabelOffset', -10/64, 'xAxisMargin', 4/64, 'yAxisMargin', 2/64,'labelFontSize',7);
+       drawPublishAxis('xLabelOffset', -8/64,'yLabelOffset', -12/64, 'xAxisMargin', 4/64, 'yAxisMargin', 2/64,'labelFontSize',fontsize);
    end
 end
 set(gcf,'position',[10 10 18 15]);
@@ -125,7 +126,12 @@ mean(subMeanRT)
 mean(subMedianRT)
 mean(subMeanThresh)
 
-
+%% mean + STD of thresholds
+subThresh = mean(subMeanThresh,2);%mean over rwd, which is already averaged over staircases and runs
+mean(subThresh)
+std(subThresh)
+% keyboard
+%%
 
 % %% A figure just for the legend!
 % % plotColors = { [0.9 0.1 0.1],[0.1 0.1 0.9],[0 1 0], [0.5 1 0.2]};

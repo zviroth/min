@@ -4,7 +4,7 @@ tic
 maxRT=4000;
 onlyCorrect=0;%1=correct,2=incorrect,0=all trials with response, 4=all trials.
 toZscore=1;%0 or 1
-regressGlobalMean = 0;
+regressGlobalMean = 0;%1=yes, 0=no, 2=only the Benson ROI.
 ConcatProj = 1;
 curFolder = pwd;
 dataFolder = '/Volumes/MH02086153MACDT-Drobo/allMinSubjects_concatenated/';
@@ -18,7 +18,7 @@ numSubs=length(subFolders);
 % roiNames = {'rV1_eccen8', 'lV1_eccen8','rV2_eccen8','lV2_eccen8','rV3_eccen8','lV3_eccen8','rh_17Networks_16','lh_17Networks_16'};
 % roiNames = {'leftBenson', 'rightBenson'};
 % roiNames = { 'leftBenson', 'rightBenson','lV1_eccen8','rV1_eccen8','lV2_eccen8','rV2_eccen8','lV3_eccen8','rV3_eccen8','lh_17Networks_16','rh_17Networks_16'};
-roiNames = { 'leftBenson', 'rightBenson','lh_17Networks_16','rh_17Networks_16'};
+roiNames = { 'leftBenson', 'rightBenson','Lviz_localizer','Rviz_localizer','lh_17Networks_16','rh_17Networks_16','leftCerebellarCortex','rightCerebellarCortex'};
 
 
 cd(dataFolder);
@@ -73,10 +73,22 @@ for iSub = 1:numSubs
         %get global mean
         ts = loadTSeries(v,iScan);
         allTseries = reshape(ts,[],size(ts,4));%voxels,TRs
+        
+%         roiTC{iSub,iRoi,rwd} = loadROITSeries(v, roiNames{iRoi}, iScan, [], 'keepNAN',true);
+%         roiTC{iSub,iRoi,rwd}.tSeries = 100*(roiTC{iSub,iRoi,rwd}.tSeries-1);%percent signal change
+        
+        benson1 = loadROITSeries(v, roiNames{1}, iScan, [], 'keepNAN',true);
+        benson2 = loadROITSeries(v, roiNames{2}, iScan, [], 'keepNAN',true);
+        visualRoi = 100*[benson1.tSeries-1; benson2.tSeries-1];%percent signal change
+        
         if toZscore
             allTseries = zscoreConcat(allTseries, concatInfo{iSub,rwd});
+            visualRoi= zscoreConcat(visualRoi, concatInfo{iSub,rwd});
         end
         globalMean{iSub,rwd} = nanmean(allTseries)';%(vox,T)
+        visualMean{iSub,rwd} = nanmean(visualRoi)';%(vox,T)
+        
+        
         
         %compute Fourier amp and angle of task-related response, for ALL voxels
 
@@ -133,7 +145,6 @@ for iSub = 1:numSubs
             goodTrials = ones(size(trialResponseVec));%ALL trials
         end
         %             trialRT{iSub,rwd};
-
         
         for iRoi = 1:length(roiNames)
             
@@ -144,9 +155,12 @@ for iSub = 1:numSubs
                roiTC{iSub,iRoi,rwd}.tSeries = zscoreConcat(roiTC{iSub,iRoi,rwd}.tSeries, concatInfo{iSub,rwd});
             end
 
-            if regressGlobalMean
+            if regressGlobalMean==1
                 regressBetasGlobal{iSub,rwd,iRoi} = globalMean{iSub,rwd}\roiTC{iSub,iRoi,rwd}.tSeries';
                 roiTC{iSub,iRoi,rwd}.tSeries = roiTC{iSub,iRoi,rwd}.tSeries - regressBetasGlobal{iSub,rwd,iRoi}'*globalMean{iSub,rwd}';
+            elseif regressGlobalMean==2
+                regressBetasGlobal{iSub,rwd,iRoi} = visualMean{iSub,rwd}\roiTC{iSub,iRoi,rwd}.tSeries';
+                roiTC{iSub,iRoi,rwd}.tSeries = roiTC{iSub,iRoi,rwd}.tSeries - regressBetasGlobal{iSub,rwd,iRoi}'*visualMean{iSub,rwd}';
             end
 
             roiMeanTseries{iSub,iRoi,rwd}(:) = nanmean(roiTC{iSub,iRoi,rwd}.tSeries);%mean across voxels
@@ -222,8 +236,10 @@ if toZscore
     zScoreString = '_zscored';
 end
 globalMeanString = '';
-if regressGlobalMean
+if regressGlobalMean==1
     globalMeanString = '_globalRegressed';
+elseif regressGlobalMean==2
+    globalMeanString = '_bensonRegressed';
 end
 
 ConcatProjStr = '';
@@ -241,8 +257,8 @@ save([dataFolder 'rwdTC_concat' onlyCorrectString zScoreString globalMeanString 
     'subRoiRuns','runMeanFFT',...
     'allVoxTrialResponse','allVoxTaskPhase','allVoxTaskAmp','allVoxTaskCo',...
     'voxTrials','voxGoodTrials','meanVoxTrial',...
-    'maxRT');
-
+    'maxRT','-v7.3');
+%'-v7.3'
 runRwd
 toc
 
