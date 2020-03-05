@@ -2,7 +2,7 @@ close all
 clear all
 tic
 onlyCorrect=0;%1=correct,2=incorrect,0=all trials with response, 4=all trials.
-toZscore=0;%0 or 1
+toZscore=1;%0 or 1
 regressGlobalMean = 0;
 ConcatProj = 1;
 curFolder = pwd;
@@ -67,17 +67,22 @@ for iSub = 1:length(goodSubs)
             stdAmpVar{iSub,iRoi}(rwd,:) = squeeze(nanstd(stdAmpTrial{iSub,iRoi,rwd},0,2));
             ampVar{iSub,iRoi}(rwd,:) = squeeze(nanstd(ampTrial{iSub,iRoi,rwd},0,2));
             
+            temp= squeeze(std(voxGoodTrials{goodSubs(iSub),iRoi,rwd},0,3));%vox,timepoint
+            subVoxVar{iSub,iRoi}(rwd,:) = mean(temp,2);
             
             %ROI average
             reshapedTrials = subTrialResponse{goodSubs(iSub),iRoi,rwd};
             %trial-by-trial FFT
-            subTimepointStd(iSub,iRoi,rwd,:) = std(reshapedTrials,0,2);
+            subTimepointStd(iSub,iRoi,rwd,:) = std(reshapedTrials,0,2);%timepoint variability timecourse (=std across trials)
             temp = fft(reshapedTrials);
             roiFftAmp = abs(temp(2,:));
             roiFftPh = angle(temp(2,:));
             trialRoiFftPhVec{iSub,rwd}(iRoi,:) = roiFftPh;
             trialRoiFftAmpVec{iSub,rwd}(iRoi,:) = roiFftAmp;
             trialRoiStdVec{iSub,rwd}(iRoi,:) = std(reshapedTrials,0,1);
+            
+            subMeanStd(iSub,iRoi,rwd) = std(mean(reshapedTrials,2));%std of mean response
+            subMeanVar(iSub,iRoi,rwd) = mean(squeeze(subTimepointStd(iSub,iRoi,rwd,:)));%mean timepoint variability
             
         end
                     
@@ -88,9 +93,17 @@ for iSub = 1:length(goodSubs)
         stdAmpVarDiff{iSub,iRoi} = stdAmpVar{iSub,iRoi}(1,:) - stdAmpVar{iSub,iRoi}(2,:);
         phVarDiff{iSub,iRoi} = phVar{iSub,iRoi}(1,:) - phVar{iSub,iRoi}(2,:);        
         ampVarDiff{iSub,iRoi} = ampVar{iSub,iRoi}(1,:) - ampVar{iSub,iRoi}(2,:);      
-       
-        concatForCorr = [stdAmpDiff{iSub,iRoi};  phDiff{iSub,iRoi}; ampDiff{iSub,iRoi}; ...
-            stdAmpVarDiff{iSub,iRoi}; phVarDiff{iSub,iRoi}; ampVarDiff{iSub,iRoi}];
+        timepointVarDiff{iSub,iRoi} = subVoxVar{iSub,iRoi}(1,:) - subVoxVar{iSub,iRoi}(2,:);      
+%         concatForCorr = [stdAmpDiff{iSub,iRoi};  phDiff{iSub,iRoi}; ampDiff{iSub,iRoi}; ...
+%             stdAmpVarDiff{iSub,iRoi}; phVarDiff{iSub,iRoi}; ampVarDiff{iSub,iRoi}];
+%         concatForCorr = [stdAmpDiff{iSub,iRoi};   ampDiff{iSub,iRoi}; ...
+%             phDiff{iSub,iRoi}; stdAmpVarDiff{iSub,iRoi}; ampVarDiff{iSub,iRoi}; phVarDiff{iSub,iRoi}];
+        concatForCorr = [mean(stdAmp{iSub,iRoi}); mean(amp{iSub,iRoi}); circ_mean(ph{iSub,iRoi}); ...
+            stdAmpDiff{iSub,iRoi};   ampDiff{iSub,iRoi}; phDiff{iSub,iRoi}; ...
+            mean(stdAmpVar{iSub,iRoi}); mean(phVar{iSub,iRoi}); mean(ampVar{iSub,iRoi}); mean(subVoxVar{iSub,iRoi}); ...
+             stdAmpVarDiff{iSub,iRoi}; ampVarDiff{iSub,iRoi}; phVarDiff{iSub,iRoi}; timepointVarDiff{iSub,iRoi}];
+        
+        
         concatForCorr = concatForCorr(:,~isnan(phDiff{iSub,iRoi}));
         
         [pearsonsCorr(iSub,iRoi,:,:), pearsonsPval(iSub,iRoi,:,:)] = corr(concatForCorr');
@@ -100,9 +113,9 @@ end
 
 
 
-
 %%
-labels = {'\Deltastd','\Deltaph','\Deltaamp','\Deltavar(std)','\Deltavar(ph)','\Deltavar(amp)'};
+% labels = {'\Deltastd','\Deltaph','\Deltaamp','\Deltavar(std)','\Deltavar(ph)','\Deltavar(amp)'};
+labels = {'std', 'amp','ph', '\Deltastd','\Deltaamp','\Deltaph','std var', 'amp var', 'ph var', 'time var','\Deltavar(std)','\Deltavar(amp)','\Deltavar(ph)','\Deltavar(time)'};
 ifig=ifig+1; figure(ifig); clf
 cols=2;
 rows=ceil(length(roiNames)/cols);
@@ -111,12 +124,12 @@ meanPearsonsCorr= squeeze(nanmean(pearsonsCorr));%mean over subjects
 for iRoi=1:length(roiNames)
    subplot(rows,cols,iRoi)
    imagesc(squeeze(meanPearsonsCorr(iRoi,:,:)));
-   xticklabels(labels);
-   xticks(1:length(labels));
+   xticklabels(labels(1:3:end));
+   xticks(1:3:length(labels));
    yticklabels(labels);
    yticks(1:length(labels));
    if iRoi==1
-       title({'mean corr between vox'; roiNames{iRoi}});
+       title({'mean corr across vox'; roiNames{iRoi}});
    else
    title(roiNames{iRoi});
    end
@@ -135,23 +148,23 @@ end
 %    title(roiNames{iRoi});
 % end
 
-%% plot polar histogram of task related phase
-ifig=ifig+1; figure(ifig); clf
-rows=2;
-cols=numSubs;
-nbins=20;
-nVox=1000;
-thresh=0.015;
-for iSub=1:numSubs
-%     bestVox = sort(allVoxTaskCo{iSub,1}+allVoxTaskCo{iSub,2},'descend');
-    for rwd=1:2
-        subplot(rows,cols,iSub+(rwd-1)*cols)
-%         polarhistogram(allVoxTaskPhase{iSub,rwd}(bestVox(1:nVox)),nbins);
-        polarhistogram(allVoxTaskPhase{iSub,rwd}(allVoxTaskCo{iSub,rwd}>thresh),nbins);
-        set(gca,'RTickLabel',[]);
-        set(gca,'ThetaTickLabel',[]);
-    end
-end
+% %% plot polar histogram of task related phase
+% ifig=ifig+1; figure(ifig); clf
+% rows=2;
+% cols=numSubs;
+% nbins=20;
+% nVox=1000;
+% thresh=0.015;
+% for iSub=1:numSubs
+% %     bestVox = sort(allVoxTaskCo{iSub,1}+allVoxTaskCo{iSub,2},'descend');
+%     for rwd=1:2
+%         subplot(rows,cols,iSub+(rwd-1)*cols)
+% %         polarhistogram(allVoxTaskPhase{iSub,rwd}(bestVox(1:nVox)),nbins);
+%         polarhistogram(allVoxTaskPhase{iSub,rwd}(allVoxTaskCo{iSub,rwd}>thresh),nbins);
+%         set(gca,'RTickLabel',[]);
+%         set(gca,'ThetaTickLabel',[]);
+%     end
+% end
 
 %% Correlate singe trial phases between ROIs , averaged across subjects
 %correlate phases across trials between ROIs, within subject & rwd
@@ -341,7 +354,7 @@ eccMax = 70;
 nbins = 12;
 % binBorders = (linspace(eccMin^3,eccMax^3,nbins+1))^(1/3)
 binBorders = logspace(log10(eccMin),log10(eccMax),nbins+1);
-
+% binBorders = [0.2    0.9    1.55    2.45    3.7    5    6.95   10.1   18   35   70.0000];
 % binBorders = [0.2 3 70];
 
 
@@ -390,28 +403,34 @@ for iSub = 1:length(goodSubs)%length(subdirs)
                     allBinTrials{iRoi,ibin,rwd} = [allBinTrials{iRoi,ibin,rwd} reshapedTrials];
                 end
                 %average per subject
-                subBinResponse(iSub,iRoi,ibin,rwd,:) = mean(subBinTrialResponse{iSub,iRoi,ibin,rwd},2);
+                subBinResponse(iSub,iRoi,ibin,rwd,:) = mean(subBinTrialResponse{iSub,iRoi,ibin,rwd},2);%mean response across trials
                 %trial-by-trial variability per subject
-                subBinVar(iSub,iRoi,ibin,rwd) = mean(std(subBinTrialResponse{iSub,iRoi,ibin,rwd},0,2));
+                subBinVar(iSub,iRoi,ibin,rwd) = mean(std(subBinTrialResponse{iSub,iRoi,ibin,rwd},0,2));%mean timepoint variability
                 
                 temp = fft(subBinTrialResponse{iSub,iRoi,ibin,rwd});
                 roiBinFftAmp{iSub,iRoi,rwd}(ibin,:) = abs(temp(2,:));
                 roiBinFftPh{iSub,iRoi,rwd}(ibin,:) = angle(temp(2,:));
-                subBinFftAmpVar(iSub,iRoi,ibin,rwd) = std(roiBinFftAmp{iSub,iRoi,rwd}(ibin,:));
-                subBinFftPhVar(iSub,iRoi,ibin,rwd) = circ_std(roiBinFftPh{iSub,iRoi,rwd}(ibin,:)');
+%                 subBinFftAmpVar(iSub,iRoi,ibin,rwd) = std(roiBinFftAmp{iSub,iRoi,rwd}(ibin,:));
+%                 subBinFftPhVar(iSub,iRoi,ibin,rwd) = circ_std(roiBinFftPh{iSub,iRoi,rwd}(ibin,:)');
                 
-                subBinStd{iSub,iRoi,rwd}(ibin,:) = std(subBinTrialResponse{iSub,iRoi,ibin,rwd});
+                subBinStd{iSub,iRoi,rwd}(ibin,:) = std(subBinTrialResponse{iSub,iRoi,ibin,rwd});%response std per trial
 %                 singleTrialStd = std(subBinTrialResponse{iSub,iRoi,ibin,rwd});
+%                 subBinStdVar(iSub,iRoi,ibin,rwd) = std(subBinStd{iSub,iRoi,rwd}(ibin,:));
+%                 subBinStdMean(iSub,iRoi,ibin,rwd) = mean(subBinStd{iSub,iRoi,rwd}(ibin,:));
+                temp = fft(squeeze(subBinResponse(iSub,iRoi,ibin,rwd,:)));
+                subBinMeanStd(iSub,iRoi,ibin,rwd) = std(squeeze(subBinResponse(iSub,iRoi,ibin,rwd,:)));
                 subBinStdVar(iSub,iRoi,ibin,rwd) = std(subBinStd{iSub,iRoi,rwd}(ibin,:));
-                subBinStdMean(iSub,iRoi,ibin,rwd) = mean(subBinStd{iSub,iRoi,rwd}(ibin,:));
+                subBinMeanPh(iSub,iRoi,ibin,rwd) = angle(temp(2));
+                subBinPhVar(iSub,iRoi,ibin,rwd) = circ_std(roiBinFftPh{iSub,iRoi,rwd}(ibin,:)');
+                subBinMeanAmp(iSub,iRoi,ibin,rwd) = abs(temp(2));
+                subBinAmpVar(iSub,iRoi,ibin,rwd) = std(roiBinFftAmp{iSub,iRoi,rwd}(ibin,:));
 
             end
             %correlation between bins
             for ibin1=1:nbins
                 for ibin2 = 1:nbins
-                    subBinCorrPh(iSub,iRoi, rwd, ibin1, ibin2) = circ_corrcc(roiBinFftPh{iSub,iRoi,rwd}(ibin1,:), roiBinFftPh{iSub,iRoi,rwd}(ibin2,:));
-%                     subBinCorrPh(iSub,iRoi, rwd, ibin1, ibin2) = corr(roiBinFftPh{iSub,iRoi,rwd}(ibin1,:)', roiBinFftPh{iSub,iRoi,rwd}(ibin2,:)');
-
+%                     subBinCorrPh(iSub,iRoi, rwd, ibin1, ibin2) = circ_corrcc(roiBinFftPh{iSub,iRoi,rwd}(ibin1,:), roiBinFftPh{iSub,iRoi,rwd}(ibin2,:));
+                    subBinCorrPh(iSub,iRoi, rwd, ibin1, ibin2) = corr(roiBinFftPh{iSub,iRoi,rwd}(ibin1,:)', roiBinFftPh{iSub,iRoi,rwd}(ibin2,:)');
                 end
             end
             subBinCorrAmp(iSub,iRoi, rwd,:,:) = corr(roiBinFftAmp{iSub,iRoi,rwd}');
@@ -422,26 +441,46 @@ for iSub = 1:length(goodSubs)%length(subdirs)
     for rwd=1:2
         for iRoi=3:length(roiNames)
             ihemi = 2-mod(iRoi,2);%1==left, 2==right
-            roiBinFftPh{iSub,ihemi,rwd}(end+1,:) = trialRoiFftPhVec{iSub,rwd}(iRoi,:);
-            roiBinFftAmp{iSub,ihemi,rwd}(end+1,:) = trialRoiFftAmpVec{iSub,rwd}(iRoi,:);
-            subBinStd{iSub,ihemi,rwd}(end+1,:) = trialRoiStdVec{iSub,rwd}(iRoi,:);
-            %         trialRoiStdVec
+            iAddRoi = nbins+ceil((iRoi-2)/2);
+            %value per trial for each subject/roi
+            roiBinFftPh{iSub,ihemi,rwd}(iAddRoi,:) = trialRoiFftPhVec{iSub,rwd}(iRoi,:);
+            roiBinFftAmp{iSub,ihemi,rwd}(iAddRoi,:) = trialRoiFftAmpVec{iSub,rwd}(iRoi,:);
+            subBinStd{iSub,ihemi,rwd}(iAddRoi,:) = trialRoiStdVec{iSub,rwd}(iRoi,:);
+            %value per subject/roi
+            subBinMeanStd(iSub,ihemi,iAddRoi,rwd) = subMeanStd(iSub,iRoi,rwd);
+            subBinMeanPh(iSub,ihemi,iAddRoi,rwd) = subMeanFftPh(iSub,iRoi,rwd);
+            subBinMeanAmp(iSub,ihemi,iAddRoi,rwd) = subMeanFftAmp(iSub,iRoi,rwd);
+            subBinStdVar(iSub,ihemi,iAddRoi,rwd) = subMeanVar(iSub,iRoi,rwd);%should be same as std(trialRoiStdVec{iSub,rwd}(iRoi,:))
+            subBinPhVar(iSub,ihemi,iAddRoi,rwd) = circ_std(trialRoiFftPhVec{iSub,rwd}(iRoi,:)');
+            subBinAmpVar(iSub,ihemi,iAddRoi,rwd) = std(trialRoiFftAmpVec{iSub,rwd}(iRoi,:));
+
+%             subBinVar(iSub,iRoi,end+1,rwd) = mean(subTimepointStd(iSub,iRoi,rwd,:));%mean timepoint variability
+            
         end
         %     trialRoiFftPhVec{iSub,rwd}(iRoi1,:)
     end
     
-    %correlate
+    %correlate between hemispheres
     for rwd=1:2
         for ibin1=1:size(roiBinFftPh{iSub,1,rwd},1)
             for ibin2 = 1:size(roiBinFftPh{iSub,2,rwd},1)
                 subHemiBinCircCorrPh(iSub, rwd, ibin1, ibin2) = circ_corrcc(roiBinFftPh{iSub,1,rwd}(ibin1,:), roiBinFftPh{iSub,2,rwd}(ibin2,:));
                 subHemiBinCorrPh(iSub, rwd, ibin1, ibin2) = corr(roiBinFftPh{iSub,1,rwd}(ibin1,:)', roiBinFftPh{iSub,2,rwd}(ibin2,:)');
 
+                hemiBinCorrPh(rwd,ibin1,ibin2) = circ_corrcc(subBinMeanPh(:,1,ibin1,rwd),subBinMeanPh(:,2,ibin2,rwd));
             end
         end
         subHemiBinCorrAmp(iSub, rwd,:,:) = corr(roiBinFftAmp{iSub,1,rwd}', roiBinFftAmp{iSub,2,rwd}');
         subHemiBinCorrStd(iSub, rwd,:,:) = corr(subBinStd{iSub,1,rwd}', subBinStd{iSub,2,rwd}');
+
     end
+end
+for rwd=1:2
+   hemiBinCorrAmp(rwd,:,:) = corr(squeeze(subBinMeanAmp(:,1,:,rwd)),squeeze(subBinMeanAmp(:,2,:,rwd))); 
+   hemiBinCorrStd(rwd,:,:) = corr(squeeze(subBinMeanStd(:,1,:,rwd)),squeeze(subBinMeanStd(:,2,:,rwd))); 
+   hemiBinCorrStdVar(rwd,:,:) = corr(squeeze(subBinStdVar(:,1,:,rwd)),squeeze(subBinStdVar(:,2,:,rwd)));
+   hemiBinCorrPhVar(rwd,:,:) = corr(squeeze(subBinPhVar(:,1,:,rwd)),squeeze(subBinPhVar(:,2,:,rwd))); 
+   hemiBinCorrAmpVar(rwd,:,:) = corr(squeeze(subBinAmpVar(:,1,:,rwd)),squeeze(subBinAmpVar(:,2,:,rwd)));
 end
 %% correlations of trial phases between bins, separately for each hemisphere
 ifig=ifig+1; figure(ifig); clf
@@ -463,44 +502,95 @@ cols=2;
 for rwd=1:2
     subplot(rows,cols,rwd);
     imagesc(squeeze(mean(subHemiBinCorrPh(:,rwd,:,:))));
-    title(['latency, linear,  ' rwdString{rwd}]);
-    xlabel('left benson'); ylabel('right benson');
-    axis square
+    title({'corr across trials'; [ 'latency, linear,  ' rwdString{rwd}]});
     xticks;
     xticklabels;
 end
-%linear correlations of trial phases
+%circular correlations of trial phases
 for rwd=1:2
     subplot(rows,cols,rwd+cols);
     imagesc(squeeze(mean(subHemiBinCircCorrPh(:,rwd,:,:))));
     title(['latency, circular,  ' rwdString{rwd}]);
-    xlabel('left benson'); ylabel('right benson');
-    axis square
 end
 % correlations of trial FFT amplitudes between bins, between hemispheres
 for rwd=1:2
     subplot(rows,cols,rwd+2*cols);
     imagesc(squeeze(mean(subHemiBinCorrAmp(:,rwd,:,:))));
     title(['fft amplitude,  '  rwdString{rwd}]);
-    xlabel('left benson'); ylabel('right benson');
-    axis square
 end
 % correlations of trial STD amplitudes between bins, between hemispheres
 for rwd=1:2
     subplot(rows,cols,rwd+3*cols);
     imagesc(squeeze(mean(subHemiBinCorrStd(:,rwd,:,:))));
     title(['std amplitude,  '  rwdString{rwd}]);
-    xlabel('left benson'); ylabel('right benson');
-    axis square
 end
 for isubplot=1:rows*cols
    subplot(rows,cols,isubplot)
+      xlabel('right'); ylabel('left');
    caxis([-1 1]);
+   axis square
    colormap jet
 end
-
 
 set(gcf,'position',[450 150 400 	900]);
  
  
- 
+ %% correlations across subjects, between hemispheres
+ifig=ifig+1; figure(ifig); clf
+rows=6;
+cols=2;
+%mean phase
+for rwd=1:2
+    subplot(rows,cols,rwd);
+    imagesc(squeeze(hemiBinCorrPh(rwd,:,:)));
+    title({'corr across subjects'; ['latency, circular,  ' rwdString{rwd}]});
+end
+%mean amp
+for rwd=1:2
+    subplot(rows,cols,rwd+cols);
+    imagesc(squeeze(hemiBinCorrAmp(rwd,:,:)));
+    title(['fft amplitude,  ' rwdString{rwd}]);
+end
+%mean std amplitude
+for rwd=1:2
+    subplot(rows,cols,rwd+2*cols);
+    imagesc(squeeze(hemiBinCorrStd(rwd,:,:)));
+    title(['std,  ' rwdString{rwd}]);
+end
+%phase variability
+for rwd=1:2
+    subplot(rows,cols,rwd+3*cols);
+    imagesc(squeeze(hemiBinCorrPhVar(rwd,:,:)));
+    title(['phase variability,  ' rwdString{rwd}]);
+end
+%fft amplitude variability
+for rwd=1:2
+    subplot(rows,cols,rwd+4*cols);
+    imagesc(squeeze(hemiBinCorrAmpVar(rwd,:,:)));
+    title(['amplitude variability,  ' rwdString{rwd}]);
+end
+%std amplitude variability
+for rwd=1:2
+    subplot(rows,cols,rwd+5*cols);
+    imagesc(squeeze(hemiBinCorrStdVar(rwd,:,:)));
+    title(['std variability,  ' rwdString{rwd}]);
+end
+
+
+
+for isubplot=1:rows*cols
+   subplot(rows,cols,isubplot)
+   xlabel('right'); ylabel('left');
+   xticklabels('');
+   xticks('');
+   yticklabels('');
+   yticks('');
+   caxis([-1 1]);
+   axis square
+   colormap jet
+end
+set(gcf,'position',[450 150 400 	900]);
+%%
+ifig=ifig+1; figure(ifig); clf
+temp = squeeze(mean(numBinVoxels));
+plot(mean(temp));
